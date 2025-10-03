@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/nathan/pcl_lib/build/_deps/cuco-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
