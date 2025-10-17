@@ -6,8 +6,8 @@ namespace Eigen{
   using Vector6d = Eigen::Matrix<double, 6, 1>;
 }
 
-using Correspondences = thrust::device_vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>;
-using LinearSystem = std::pair<Eigen::Matrix6d, Eigen::Vector6d>;
+using Correspondences = thrust::device_vector<thrust::pair<Eigen::Vector3d, Eigen::Vector3d>>;
+using LinearSystem = thrust::pair<Eigen::Matrix6d, Eigen::Vector6d>;
 
 namespace {                                                                        
 
@@ -109,7 +109,7 @@ LinearSystem BuildLinearSystem(Correspondences &correspondences, const double ke
         const Eigen::Vector3d residual = source - target;
         Eigen::Matrix36d J_r;
         J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-        J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source); return std::make_tuple(J_r, residual); 
+        J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source); return thrust::make_tuple(J_r, residual); 
   };
     
 
@@ -126,9 +126,9 @@ LinearSystem BuildLinearSystem(Correspondences &correspondences, const double ke
       correspondences.end(),
       linear_systems.begin(),
       [=] __device__ (const auto &correspondences)->LinearSystem{
-        const std::tuple<Eigen::Matrix36d, Eigen::Vector3d> jr_result = compute_jacobian_and_residual(correspondences);
-        const Eigen::Matrix36d& j_r  = std::get<0>(jr_result);
-        const Eigen::Vector3d& residual  = std::get<1>(jr_result);
+        const thrust::tuple<Eigen::Matrix36d, Eigen::Vector3d> jr_result = compute_jacobian_and_residual(correspondences);
+        const Eigen::Matrix36d& j_r  = thrust::get<0>(jr_result);
+        const Eigen::Vector3d& residual  = thrust::get<1>(jr_result);
         const double w = GM_weight(residual.squaredNorm());
         return LinearSystem(j_r.transpose() * w * j_r, j_r.transpose() * w * residual);
       }
@@ -140,12 +140,12 @@ LinearSystem BuildLinearSystem(Correspondences &correspondences, const double ke
                   linear_systems.begin(),
                   linear_systems.end(),
                   LinearSystem(),
-        [] __device__ (const LinearSystem &a, const LinearSystem &b) {
-        LinearSystem result;
-        result.first = a.first + b.first;
-        result.second = a.second + b.second;
-        return result;
-    });
+        [] __host__ __device__ (const LinearSystem &a, const LinearSystem &b) {
+          LinearSystem result;
+          result.first = a.first + b.first;
+          result.second = a.second + b.second;
+          return result;
+      });
 
     return result;
   }

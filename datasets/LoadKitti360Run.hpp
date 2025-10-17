@@ -21,21 +21,21 @@ std::vector<Eigen::Vector4f> loadLidarBin(const std::string& path) {
     return points;
 }
 
-loadKitti360Sequence(const std::string& lidar_dir,
-                     const std::vector<std::string>& timestamps,
-                     int start_index, int n)
+loadKitti360Sequence(const std::string& dataset_dir,
+                     const std::string& lidar_dir="dataset_dir",
+                     int start_index = 0,
+                     int n = -1)
 {
     std::vector<std::vector<Eigen::Vector4f>> frames;
     if (start_index < 0 || start_index >= static_cast<int>(timestamps.size())) {
         throw std::out_of_range("start_index is out of range");
     }
-
     int end_index = std::min<int>(start_index + n, timestamps.size());
     frames.reserve(end_index - start_index);
 
     for (int i = start_index; i < end_index; ++i) {
         const std::string& ts = timestamps[i];
-        std::string path = lidar_dir + "/" + ts + ".bin";
+        fs:path path =  
 
         if (!fs::exists(path)) {
             std::cerr << "Warning: missing file " << path << "\n";

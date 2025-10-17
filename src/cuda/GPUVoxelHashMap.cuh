@@ -39,11 +39,8 @@ struct VoxelKey_equal{
 };
 
 
-__host__ __device__ Eigen::Vector3i PointToVoxel(Eigen::Vector3d const& points, double resolution){
-  return  Eigen::Vector3i(
-    static_cast<int32_t>(floor(points.x())/resolution),
-    static_cast<int32_t>(floor(points.y())/resolution),
-    static_cast<int32_t>(floor(points.z())/resolution));
+__host__ __device__ inline Eigen::Vector3i PointToVoxel(Eigen::Vector3d const& points, double resolution){
+  return  points.array().floor().cast<int32_t>();
 }
 
 template <int PointsPerVoxel, int InitialCapacity = 100'000>

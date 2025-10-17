@@ -24,6 +24,9 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+#disable installation of gtest
+set(INSTALL_GTEST OFF)
+set(INSTALL_GMOCK OFF)
 FetchContent_MakeAvailable(googletest)
 
 
@@ -52,9 +55,14 @@ add_library(${PROJECT_NAME}_lib SHARED
 
 target_compile_features(${PROJECT_NAME}_lib PUBLIC cuda_std_17 cxx_std_17)
 
-target_compile_options(${PROJECT_NAME}_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda>)
-
-
+target_compile_options(${PROJECT_NAME}_lib PRIVATE
+    # These flags apply only when compiling CUDA source files
+    $<$<COMPILE_LANGUAGE:CUDA>:
+        --expt-relaxed-constexpr
+        --expt-extended-lambda
+        -lineinfo
+    >
+)
 
 target_include_directories(${PROJECT_NAME}_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
