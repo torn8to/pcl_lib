@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/nathan/pcl_lib/build/_deps/cccl-subbuild/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
