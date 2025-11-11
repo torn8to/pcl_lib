@@ -1,13 +1,12 @@
 #pragma once
 
-#include <vector>
-#include <algorithm>
-#include <Eigen/Core>
-#include <sophus/se3.hpp>
-#include "VoxelMap.hpp"
 #include "Registration.hpp"
 #include "Threshold.hpp"
-
+#include "VoxelMap.hpp"
+#include <Eigen/Core>
+#include <algorithm>
+#include <sophus/se3.hpp>
+#include <vector>
 
 namespace cloud {
 
@@ -23,7 +22,7 @@ struct PipelineConfig {
   double convergence = 1e-4;
   bool odom_downsample = true;
   double initial_threshold = 0.5;
-  double min_motion_threshold =  0.1;
+  double min_motion_threshold = 0.1;
   int lfu_prune_interval = 20;
 };
 
@@ -34,7 +33,7 @@ public:
    * @param config Configuration parameters for the pipeline
    */
   explicit Pipeline(const PipelineConfig &config = PipelineConfig());
-  
+
   /**
    * @brief Destructor for the Pipeline class
    */
@@ -52,11 +51,10 @@ public:
    * @param use_external_guess Whether to use the external pose guess (optional)
    * @return A tuple containing the updated pose and the voxelized cloud
    */
-  std::tuple<Sophus::SE3d, std::vector<Eigen::Vector3d>> odometryUpdate(
-      std::vector<Eigen::Vector3d> &cloud,
-      const Sophus::SE3d &external_guess = Sophus::SE3d(),
-      bool use_external_guess = false);
-
+  std::tuple<Sophus::SE3d, std::vector<Eigen::Vector3d>>
+  odometryUpdate(std::vector<Eigen::Vector3d> &cloud,
+                 const Sophus::SE3d &external_guess = Sophus::SE3d(),
+                 bool use_external_guess = false);
 
   /**
    * @brief Adds points to the map
@@ -64,46 +62,44 @@ public:
    */
   void addToMap(const std::vector<Eigen::Vector3d> &points);
 
-
   /**
    * @brief Removes points that are far from a given location
    * @param cloud The point cloud to filter
    * @param point The reference point
    * @return The filtered point cloud
    */
-  std::vector<Eigen::Vector3d> removePointsFarFromLocation(const std::vector<Eigen::Vector3d> &cloud,
-                                                            const Eigen::Vector3d &point);
+  std::vector<Eigen::Vector3d>
+  removePointsFarFromLocation(const std::vector<Eigen::Vector3d> &cloud,
+                              const Eigen::Vector3d &point);
   /**
    * @brief Gets the map points
    * @return Vector of points in the map
    */
-  std::vector<Eigen::Vector3d> getMap(){
-    return voxel_map_.cloud();
-  }
+  std::vector<Eigen::Vector3d> getMap() { return voxel_map_.cloud(); }
 
   /**
    * @brief Removes points from a cloud that are beyond the maximum distance from origin
-   * 
+   *
    * This method filters out points from the input cloud that have a Euclidean distance
    * from the origin (0,0,0) greater than the maximum distance threshold. Points are
    * kept if their norm (distance from origin) is less than max_distance_.
-   * 
+   *
    * @param cloud The input point cloud to filter
    * @return A filtered point cloud containing only points within the maximum distance
    */
 
-std::vector<Eigen::Vector3d> removeFarPoints(std::vector<Eigen::Vector3d> &cloud){
-  std::vector<Eigen::Vector3d> pruned_cloud;
-  pruned_cloud.reserve(cloud.size());
-  std::for_each(cloud.begin(),cloud.end(),
-  [&](const auto point){
-    if(point.norm()<max_distance_){pruned_cloud.push_back(point);}});
-  return pruned_cloud;
+  std::vector<Eigen::Vector3d> removeFarPoints(std::vector<Eigen::Vector3d> &cloud) {
+    std::vector<Eigen::Vector3d> pruned_cloud;
+    pruned_cloud.reserve(cloud.size());
+    std::for_each(cloud.begin(), cloud.end(), [&](const auto point) {
+      if (point.norm() < max_distance_) {
+        pruned_cloud.push_back(point);
+      }
+    });
+    return pruned_cloud;
   }
 
- inline bool mapEmpty(){
-    return voxel_map_.empty();
-  }
+  inline bool mapEmpty() { return voxel_map_.empty(); }
 
   /**
    * @brief Gets the current position
@@ -130,7 +126,7 @@ private:
   int max_points_per_voxel_;
   bool odom_voxel_downsample_;
   VoxelMap voxel_map_;
-  int lfu_prune_counter_; // Counter to track when to prune via LFU
+  int lfu_prune_counter_;  // Counter to track when to prune via LFU
   int lfu_prune_interval_; // Interval for LFU pruning
 };
 
