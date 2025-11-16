@@ -38,18 +38,21 @@ Pipeline::odometryUpdate(std::vector<Eigen::Vector3d> &cloud, const Sophus::SE3d
   if (use_external_guess) {
     initial_guess = external_guess;
   } else {
-    initial_guess = position();
+    //assume kiss_icp motion model
+    initial_guess = position() * pose_diff_;
   }
 
   const double sigma = threshold.computeThreshold(); // adpative thresholding for kiss icp
   Sophus::SE3d new_position = registration_.alignPointsToMap(cloud_voxel_odom, voxel_map_,
                                                              initial_guess, 3.0 * sigma, sigma);
 
-  pose_diff_ = new_position * position().inverse();
+  pose_diff_ =  position().inverse() * new_position;
 
   threshold.updateModelDeviation(pose_diff_);
+
   std::vector<Eigen::Vector3d> cloud_voxel_mapping_transformed =
       voxel_map_.transform_cloud(cloud_voxel_mapping, new_position);
+
   std::vector<Eigen::Vector3d> cloud_voxel_odom_transformed =
       voxel_map_.transform_cloud(cloud_voxel_odom, new_position);
 
@@ -66,6 +69,7 @@ Pipeline::odometryUpdate(std::vector<Eigen::Vector3d> &cloud, const Sophus::SE3d
     lfu_prune_counter_ = 0;
   }
   */
+
   voxel_map_.removePointsFarFromOrigin(new_position.translation());
   updatePosition(new_position);
   return std::make_tuple(new_position, cloud_voxel_mapping);

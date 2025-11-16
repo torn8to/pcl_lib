@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)   
 
-include(cmake/CPM.cmake)
+#include(cmake/CPM.cmake)
 
 include(CheckLanguage)
 include(FetchContent)
@@ -14,10 +14,23 @@ include(FetchContent)
 
 find_package(Eigen3 REQUIRED)
 find_package(Sophus REQUIRED)
+find_package(TBB REQUIRED)
+find_package(Thrust REQUIRED CONFIG)
+
+thrust_create_target(Thrust)
+
+
+# Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
+set(CMAKE_CUDA_ARCHITECTURES 86)
+
 find_package(CUDAToolkit REQUIRED)
 find_package(CUDA REQUIRED)
 
 check_language(CUDA)
+
+
+# Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
+set(CMAKE_CUDA_ARCHITECTURES 86)
 
 FetchContent_Declare(
   googletest
@@ -31,15 +44,34 @@ FetchContent_MakeAvailable(googletest)
 
 
 
-CPMAddPackage(
-  NAME cuco
-  GITHUB_REPOSITORY NVIDIA/cuCollections
-  GIT_TAG dev
-  OPTIONS
-     "BUILD_TESTS OFF"
-     "BUILD_BENCHMARKS OFF"
-     "BUILD_EXAMPLES OFF"
+FetchContent_Declare(
+    stdgpu
+    GIT_REPOSITORY https://github.com/stotko/stdgpu.git
+    GIT_TAG        master
 )
+
+# Exclude unneeded parts from the build
+set(STDGPU_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+set(STDGPU_BUILD_BENCHMARKS OFF CACHE INTERNAL "")
+set(STDGPU_BUILD_TESTS OFF CACHE INTERNAL "")
+
+FetchContent_MakeAvailable(stdgpu)
+
+
+# Link your project against stdgpu
+#target_link_libraries(your_project PUBLIC stdgpu::stdgpu)
+
+
+
+#CPMAddPackage(
+#NAME cuco
+#GITHUB_REPOSITORY NVIDIA/cuCollections
+#GIT_TAG dev
+#OPTIONS
+#"BUILD_TESTS OFF"
+#"BUILD_BENCHMARKS OFF"
+#"BUILD_EXAMPLES OFF"
+#)
 
 
 # Enable relaxed constexpr for all CUDA compilations
@@ -49,9 +81,15 @@ add_library(${PROJECT_NAME}_lib SHARED
   src/Pipeline.cpp
   src/Registration.cpp
   src/VoxelMap.cpp
-  src/cuda/GPUVoxelHashMap.cu
-  src/cuda/GPURegistration.cu
+  #src/cuda/GPUVoxelHashMap.cu
+  #src/cuda/GPURegistration.cu
 )
+
+add_executable(odom_bin_generator scripts/odom_read_into_cloud_save.cpp)
+target_link_libraries(odom_bin_generator PRIVATE ${PROJECT_NAME}_lib)
+
+# Propagate include dirs and CUDA/TPLs via the shared lib
+#target_link_libraries(bench_icp PRIVATE ${PROJECT_NAME}_lib)
 
 target_compile_features(${PROJECT_NAME}_lib PUBLIC cuda_std_17 cxx_std_17)
 
@@ -77,7 +115,12 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   CUDA::cudart
   CUDA::cublas
   CUDA::curand
-  cuco
+  TBB::tbb
+  #cuco
+)
+
+target_include_directories(${PROJECT_NAME}_lib
+    PRIVATE ${CUDAToolkit_INCLUDE_DIRS}
 )
 
 # Set CUDA properties

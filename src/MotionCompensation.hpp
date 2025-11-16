@@ -12,8 +12,10 @@
 #include <tbb/task_arena.h>
 
 namespace cloud {
+
+
 /**
- * @brief Performs motion compensation on a point cloud using timestamps and transformation
+ * @brief Performs motion compensation on a point cloud using timestamps and transformation based
  *
  * This function compensates for motion during the LiDAR scan by applying a transformation
  * to each point based on its timestamp relative to the scan start time. The transformation

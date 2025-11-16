@@ -13,12 +13,26 @@ namespace {
 
 __device__ __forceinline__ double square(double x) { return x * x; }
 
+/**
+ * @brief an inplace data transform on the gpu to update the position inplace without allocating a new vector
+ * @param the vector you are transforming to inplace
+ * @param transform to change the position of points by
+ **/
 void transform_inplace(thrust::device_vector<Eigen::Vector3d> data, const Sophus::SE3d transform) {
   thrust::transform(
       thrust::device, data.begin(), data.end(), data.begin(),
       [transform] __device__(Eigen::Vector3d const &point) { return transform * point; });
 }
 
+
+/**
+ * @brief Does DataAssocaiation using the neareast neighbors search on the voxel hashmap setting up the linear regression
+ * @param points are they points you are using to query 
+ * @param voxel_map the voxel map you are querying
+ * @param Registration object controls some of the parameters of building
+ * @param double distance_threshold is the max regerence distance for checking if a point is going to be assocciated
+ * @return A list of point coorespondences
+ */
 template <int PointsPerVoxel, int InitialCapacity>
 Correspondences
 DataAssociation(thrust::device_vector<Eigen::Vector3d> &points,
@@ -94,6 +108,11 @@ DataAssociation(thrust::device_vector<Eigen::Vector3d> &points,
   return correspondences;
 }
 
+/**
+ * @brief BHulilds the linear system and 
+ * @param coorespondences are point coorespondences to be evaluated
+ * @param kernel sclae is a value to perform outlier_rejection and weighting
+ */
 LinearSystem BuildLinearSystem(Correspondences &correspondences, const double kernel_scale) {
   auto compute_jacobian_and_residual = [] __device__(const auto &correspondence) {
     const Eigen::Vector3d &source = correspondence.first;

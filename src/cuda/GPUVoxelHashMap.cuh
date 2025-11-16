@@ -16,13 +16,22 @@
 #include <cooperative_groups.h>
 #include <cuda_runtime.h>
 
+#include <stdgpu/unordered_map.h>
+#include <stdgpu/unordered_set.h>
+
 #include <Eigen/Dense>
 #include <vector>
 
+#define MAXPOINTSPERVOXEL 27
+
+// TODO template this
+__host__ __device__ struct VoxelData {
+  int lock; // 0 unlocked and 1 locked
+  int num_points;
+  Eigen::Vector3d points[MAXPOINTSPERVOXEL];
+};
+
 // Use a packed voxel key that fits in 8 bytes
-
-using Voxel = Eigen::Vector3i;
-
 // Sentinel values for empty slots
 struct VoxelKey_hash {
   __host__ __device__ std::size_t operator()(Eigen::Vector3i const &point) {
@@ -42,34 +51,52 @@ __host__ __device__ inline Eigen::Vector3i PointToVoxel(Eigen::Vector3d const &p
   return points.array().floor().cast<int32_t>();
 }
 
-template <int PointsPerVoxel, int InitialCapacity = 100'000> class GPUVoxelHashMap {
+using Voxel = Eigen::Vector3i;
+using VoxelSet = stdgpu::unordered_set<Voxel, Hash>;
+using SparseVoxelMap = stdgpu::unordered_map<Key, Value, Hash, KeyEqual>;
+using Key = Eigen::Vector3i;
+using Value = VoxelData;
+using KeyEqual = VoxelKey_equal;
+using Hash = VoxelKey_hash;
+
+template <int PointsPerVoxel, int InitialCapacity = 10'000'000> class GPUVoxelHashMap {
 public:
+  template <int PointsPerVoxel, int InitialCapacity>
   GPUVoxelHashMap(double voxel_resolution = 1.0, int initial_capacity = 100001,
-                  double max_range = 100)
+                  max_points_per_voxel = 27, double max_range = 100)
       : resolution_(voxel_resolution), capacity_(initial_capacity), max_range_(max_range),
         map_(initial_capacity, cuco::empty_key<Key>{Eigen::Vector3d{0, 0, 0}},
-             cuco::empty_value<Value>{Value{}}) {}
+             cuco::empty_value<Value>{Value{}}) {
+    max_points_per_voxel_ =
+        PointsPerVoxel < max_points_per_voxel ? PointsPerVoxel : max_points_per_voxel;
+    gpu_map_ = stdgpu::unordered_map<Key, Value, Hash, KeyEqual>::createDeviceObject();
+    resolution_spacing_ = (resolution_ * resolution_) /
+                          max_points_per_voxel_; // setting this constant up now so it is not
+                                                 // recomputed every time for gpu insertion
+  }
 
   ~GPUVoxelHashMap() {}
 
-  void empty();
+  /**
+   * @brief return check if the voxel map is empty returns
+   * @return True if is empty false if it is not
+   */
+  bool empty() {
+    return gpu_map_.empty(); // host function
+  }
+
   std::vector<Eigen::Vector3d> cloud();
+  void removePointsFarFromLocation(Eigen::Vector3d const &point);
   void addPoints(const std::vector<Eigen::Vector3d> &points);
   // std::pair<Eigen::Vector3d> firstNearestNeighborQuery(Eigen::Vector3d const&
   // point); moved this method to be A Kernel In GPURegistration
-  void removePointsFarFromLocation(Eigen::Vector3d const &point);
 
 private:
-  using Key = Eigen::Vector3d;
-  using Value = cuda::std::inplace_vector<Eigen::Vector3d, PointsPerVoxel>;
-  // static constexpr Key empty_key_sentinel = VoxelKey{0, 0, 0};
-  // static constexpr Value empty_value_sentinel = Value{};
-  using probing_scheme_type = cuco::linear_probing<1, VoxelKey_hash>;
-  using KeyEqual = VoxelKey_equal;
+  SparseVoxelMap<Key, Value, Hash, KeyEqual> gpu_map_;
 
-  cuco::dynamic_map<Key, Value, cuda::thread_scope_device> map_;
-
+  int max_points_per_voxel;
   double resolution_;
+  double resolution_spacing;
   double max_range_;
   int capacity_;
 };

@@ -122,7 +122,7 @@ Sophus::SE3d Registration::alignPointsToMap(const std::vector<Eigen::Vector3d> &
     const Eigen::Vector6d dx = JTJ.ldlt().solve(-JTr);
     const Sophus::SE3d estimation = Sophus::SE3d::exp(dx);
     TransformPoints(estimation, source);
-    T_icp = estimation * T_icp;
+    T_icp = T_icp * estimation;
     num_iterations = j;
     if (dx.norm() < convergence_)
       break;
