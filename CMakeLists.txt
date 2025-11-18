@@ -57,20 +57,6 @@ set(STDGPU_BUILD_TESTS OFF CACHE INTERNAL "")
 
 FetchContent_MakeAvailable(stdgpu)
 
-
-# Link your project against stdgpu
-#target_link_libraries(your_project PUBLIC stdgpu::stdgpu)
-
-
-
-#CPMAddPackage(
-#NAME cuco
-#GITHUB_REPOSITORY NVIDIA/cuCollections
-#GIT_TAG dev
-#OPTIONS
-#"BUILD_TESTS OFF"
-#"BUILD_BENCHMARKS OFF"
-#"BUILD_EXAMPLES OFF"
 #)
 
 
@@ -83,6 +69,7 @@ add_library(${PROJECT_NAME}_lib SHARED
   src/VoxelMap.cpp
   #src/cuda/GPUVoxelHashMap.cu
   #src/cuda/GPURegistration.cu
+  src/cuda/MotionCompensation.cu
 )
 
 add_executable(odom_bin_generator scripts/odom_read_into_cloud_save.cpp)
@@ -116,12 +103,26 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   CUDA::cublas
   CUDA::curand
   TBB::tbb
-  #cuco
 )
 
 target_include_directories(${PROJECT_NAME}_lib
     PRIVATE ${CUDAToolkit_INCLUDE_DIRS}
 )
+
+# testing stuff
+enable_testing()
+
+add_executable(MotionCompensationTest
+  test/MotionCompensation.cpp
+)
+
+target_link_libraries(
+  MotionCompensationTest
+  GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(MotionCompensationTest)
 
 # Set CUDA properties
 set_target_properties(${PROJECT_NAME}_lib PROPERTIES

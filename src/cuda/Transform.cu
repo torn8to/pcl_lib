@@ -1,13 +1,4 @@
-#include <thrust/iterator/zip_iterator.h>
-#include <thrust/pair.h>
-#include <thrust/tuple.h>
-
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/reduce.h>
-
-#include <vector_types.h>
+#include <cuda/Transform.cuh>
 
 /**
  * @brief an inplace data transform on the gpu to update the position inplace without allocating a
