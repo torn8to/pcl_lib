@@ -36,11 +36,9 @@ inline std::vector<Eigen::Vector3d> motionDeSkew(const std::vector<Eigen::Vector
   std::vector<Eigen::Vector3d> compensated_cloud;
   compensated_cloud.reserve(cloud.size());
   auto cloud_it = cloud.begin();
-  auto timestamps_it = cloud_timestamps.begin();
   double begin_time = cloud_timestamps.front();
   double last_time = cloud_timestamps.back();
   const auto omega = relative_motion.log();
-
   tbb::parallel_for(tbb::blocked_range<size_t>{0, compensated_cloud.size()},
                     [&](const tbb::blocked_range<size_t> &r) {
                       for (size_t idx = r.begin(); idx < r.end(); ++idx) {
