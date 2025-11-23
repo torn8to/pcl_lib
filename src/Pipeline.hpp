@@ -12,9 +12,9 @@ namespace cloud {
 
 struct PipelineConfig {
   double max_distance = 100.0;
-  double voxel_factor = 120;
+  double voxel_factor = 100;
   double voxel_resolution_alpha = 1.5;
-  double voxel_resolution_beta = 0.5; // beta is recommended to be smaller for better odom updates
+  double voxel_resolution_beta = 0.5; 
   bool imu_integration_enabled = false;
   int max_points_per_voxel = 27;
   int num_threads = 8;

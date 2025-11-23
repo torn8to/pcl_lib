@@ -18,7 +18,7 @@ namespace cloud {
 
 void VoxelMap::addPoints(const std::vector<Eigen::Vector3d> &points) {
   double resolution_spacing =
-      std::sqrt(voxel_resolution_ * voxel_resolution_ / max_points_per_voxel_);
+      std::sqrt((voxel_resolution_ * voxel_resolution_) / max_points_per_voxel_);
   for (const auto &point : points) {
     const Voxel voxel = PointToVoxel(point, voxel_resolution_);
     auto query = map_.find(voxel);
@@ -68,8 +68,10 @@ std::vector<Eigen::Vector3d> VoxelMap::cloud() const {
   cloud.reserve(map_.size() * static_cast<size_t>(max_points_per_voxel_));
   std::for_each(map_.begin(), map_.end(), [&](const auto &map_element) {
     const std::vector<Eigen::Vector3d> &voxel_data = map_element.second;
-    //cloud.insert(cloud.end(), voxel_data.begin(), voxel_data.end());
-    cloud.push_back(voxel_data[0]);
+    if (!voxel_data.empty()) {
+      cloud.insert(cloud.end(), voxel_data.begin(), voxel_data.end());
+      //cloud.push_back(voxel_data[0]);
+    }
   });
   cloud.shrink_to_fit();
   return cloud;
@@ -84,14 +86,16 @@ VoxelMap::firstNearestNeighborQuery(const Eigen::Vector3d &point) const {
     const auto query = map_.find(voxel + voxel_shift);
     if (query != map_.end()) {
       const std::vector<Eigen::Vector3d> voxel_points = query->second;
-      const Eigen::Vector3d &neighbor = *std::min_element(
-          voxel_points.begin(), voxel_points.end(), [&](const auto &lhs, const auto &rhs) {
-            return (lhs - point).norm() < (rhs - point).norm();
-          });
-      double distance = (neighbor - point).norm();
-      if (distance < min_distance){
-        closest_neighbor = neighbor;
-        min_distance = distance;
+      if (!voxel_points.empty()) {
+        const Eigen::Vector3d &neighbor = *std::min_element(
+            voxel_points.begin(), voxel_points.end(), [&](const auto &lhs, const auto &rhs) {
+              return (lhs - point).norm() < (rhs - point).norm();
+            });
+        double distance = (neighbor - point).norm();
+        if (distance < min_distance){
+          closest_neighbor = neighbor;
+          min_distance = distance;
+        }
       }
     }
   });
@@ -102,6 +106,10 @@ void VoxelMap::removePointsFarFromOrigin(const Eigen::Vector3d &origin) {
   const auto max_distance_sq = max_range_ * max_range_;
   for (auto it = map_.begin(); it != map_.end();) {
     const auto &[voxel, voxel_points] = *it;
+    if (voxel_points.empty()) {
+      it = map_.erase(it);
+      continue;
+    }
     const Eigen::Vector3d &f_point = voxel_points.front();
     if ((origin - f_point).squaredNorm() > max_distance_sq) {
       it = map_.erase(it);
@@ -109,20 +117,34 @@ void VoxelMap::removePointsFarFromOrigin(const Eigen::Vector3d &origin) {
       ++it;
     }
   }
+} 
+/**
+*@brief  get points in the voxxel ass umes the voxel 
+* exists in the map mostly used for testing between cpu and gpu map consistencyt
+*
+*@param voxel the voxel you want points for
+*@return a vector of the points contained in the voxel
+*/
+std::vector<Eigen::Vector3d> getVoxelPoints(const Eigen::Vector3i voxel){
+  std::vector<Eigen::Vector3d> voxel_points;
+  voxel_points.reserve(max_points_per_voxel_);
+
+  auto [voxel, points] = map_.find(voxel);
+  voxel_points.assign(points.begin(), points.end());
+  voxel_points.shrink_to_fit();
+
+  return voxel_points;
 }
 
-// lfu caching methods for maintaining local map
-void VoxelMap::lfuUpdate(const cloud::Voxel &voxel) { lfu_cache_.put(voxel); }
+std::vector<Eigen::Vector3i> getVoxels(){
+  std::vector<Eigen::Vector3i> voxel_vectors;
+  vector3i.reserve(map_.size());
 
-int VoxelMap::lfuGet(const cloud::Voxel &voxel) { return lfu_cache_.get(voxel); }
+  std::for_each(map_.begin(), map_.end(), [&](cosnt auto voxel_and_points){
+    voxel_and_points.first
 
-void VoxelMap::pruneViaLfu() {
-  for (auto it = map_.begin(); it != map_.end(); ++it) {
-    auto voxel = it->first;
-    if (!(lfuGet(voxel) > 0)) {
-      map_.erase(voxel);
-    }
-  }
+  })
+
 }
 
-} // namespace cloud
+}// namespace cloud
