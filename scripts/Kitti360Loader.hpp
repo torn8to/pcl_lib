@@ -105,8 +105,6 @@ public:
         std::string file_path = file_paths_[current_index_++];
         std::string ext = fs::path(file_path).extension().string();
         
-        std::cout << "Loading file " << current_index_ << "/" 
-                  << file_paths_.size() << ": " << file_path << std::endl;
         
         if (ext == ".bin") {
             return loadBinaryFile(file_path);
