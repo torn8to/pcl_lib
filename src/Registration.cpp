@@ -19,7 +19,7 @@ using Matrix36d = Eigen::Matrix<double, 3, 6>;
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 } // namespace Eigen
 
-using Correspondences = std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>;
+using Correspondences = tbb::concurrent_vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>;
 using LinearSystem = std::pair<Eigen::Matrix6d, Eigen::Vector6d>;
 
 namespace {
@@ -114,6 +114,10 @@ Sophus::SE3d Registration::alignPointsToMap(const std::vector<Eigen::Vector3d> &
   TransformPoints(initial_guess, source);
   int num_iterations;
   Sophus::SE3d T_icp = Sophus::SE3d();
+  if(voxel_map.empty()){
+    return initial_guess;
+  }
+
   for (int j = 0; j < max_num_iterations_; ++j) {
     const auto correspondences = DataAssociation(source, voxel_map, max_distance);
     LinearSystem linearSystem = BuildLinearSystem(correspondences, kernel_scale);
@@ -124,8 +128,7 @@ Sophus::SE3d Registration::alignPointsToMap(const std::vector<Eigen::Vector3d> &
     TransformPoints(estimation, source);
     T_icp = T_icp * estimation;
     num_iterations = j;
-    if (dx.norm() < convergence_)
-      break;
+    if (dx.norm() < convergence_)break;
   }
   return T_icp * initial_guess;
 }

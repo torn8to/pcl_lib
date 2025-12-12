@@ -8,9 +8,25 @@
 #include <thrust/for_each.h>
 #include <thrust/reduce.h>
 
-#include <sophus/se3.hpp>
 #include <Eigen/Core>
+#include <sophus/se3.hpp>
 
 #include <vector_types.h>
 
-std::vector<Eigen::Vector3d> transformGPUThrust(std::vector<Eigen::Vector3d> &points,const Sophus::SE3d transform);
+using Vector3dDNA = Eigen::Matrix<double, 3, 1, Eigen::DontAlign>;
+
+__device__ __inline__ void transform(
+        Eigen::Vector3dDNA *points_in, 
+        Eigen::Vector3dDNA *points_out,
+        Sophus::SE3d *transform, int N) {
+unsigned int gtidx = blockDim.x * blockidx.x + threadIdx.x;
+points_out[gtidx] = transform[0] * points_in[gtidx];
+}
+
+__device__ __inline__ void transformInplace(
+        Eigen::Vector3dDNA *points_in,
+        Sophus::SE3d *transform,
+        int N) {
+unsigned int gtidx = blockDim.x * blockidx.x + threadIdx.x;
+points_in[gtidx] = transform[0] * points_in[gtidx];
+}

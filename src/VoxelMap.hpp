@@ -28,6 +28,7 @@ class VoxelMap {
     std::vector<Eigen::Vector3d> cloud() const;
     std::tuple<Eigen::Vector3d, double> firstNearestNeighborQuery(const Eigen::Vector3d &point) const;
     void removePointsFarFromOrigin(const Eigen::Vector3d &origin);
+
     // testing methods
     std::vector<Eigen::Vector3d> getVoxelPoints(const Eigen::Vector3i voxel);
     std::vector<Eigen::Vector3i> getVoxels();
@@ -38,4 +39,5 @@ class VoxelMap {
     int max_points_per_voxel_;
     std::unordered_map<cloud::Voxel, std::vector<Eigen::Vector3d>> map_;
   };
+
 }

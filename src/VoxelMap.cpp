@@ -102,49 +102,35 @@ VoxelMap::firstNearestNeighborQuery(const Eigen::Vector3d &point) const {
   return std::tuple<Eigen::Vector3d, double>(closest_neighbor, min_distance);
 }
 
-void VoxelMap::removePointsFarFromOrigin(const Eigen::Vector3d &origin) {
-  const auto max_distance_sq = max_range_ * max_range_;
-  for (auto it = map_.begin(); it != map_.end();) {
-    const auto &[voxel, voxel_points] = *it;
-    if (voxel_points.empty()) {
-      it = map_.erase(it);
-      continue;
-    }
-    const Eigen::Vector3d &f_point = voxel_points.front();
-    if ((origin - f_point).squaredNorm() > max_distance_sq) {
-      it = map_.erase(it);
-    } else {
-      ++it;
-    }
-  }
-} 
 /**
-*@brief  get points in the voxxel ass umes the voxel 
+*@brief  get points in the voxel assumes it is inserted the voxel 
 * exists in the map mostly used for testing between cpu and gpu map consistencyt
 *
 *@param voxel the voxel you want points for
 *@return a vector of the points contained in the voxel
 */
-std::vector<Eigen::Vector3d> getVoxelPoints(const Eigen::Vector3i voxel){
+std::vector<Eigen::Vector3d> VoxelMap::getVoxelPoints(const Eigen::Vector3i voxel){
   std::vector<Eigen::Vector3d> voxel_points;
   voxel_points.reserve(max_points_per_voxel_);
 
-  auto [voxel, points] = map_.find(voxel);
+  auto voxel_map_iterator = map_.find(voxel);
+  if (voxel_map_iterator == map_.end()){
+    return voxel_points;
+  }
+
+  const auto &points = voxel_map_iterator->second;
   voxel_points.assign(points.begin(), points.end());
   voxel_points.shrink_to_fit();
-
   return voxel_points;
 }
 
-std::vector<Eigen::Vector3i> getVoxels(){
+std::vector<Eigen::Vector3i> VoxelMap::getVoxels(){
   std::vector<Eigen::Vector3i> voxel_vectors;
-  vector3i.reserve(map_.size());
-
-  std::for_each(map_.begin(), map_.end(), [&](cosnt auto voxel_and_points){
-    voxel_and_points.first
-
-  })
-
+  voxel_vectors.reserve(map_.size());
+  std::for_each(map_.begin(), map_.end(), [&](const auto &voxel_and_points){
+    voxel_vectors.push_back(voxel_and_points.first);
+  });
+  return voxel_vectors;
 }
 
 }// namespace cloud

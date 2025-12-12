@@ -16,6 +16,10 @@ find_package(Eigen3 REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(TBB REQUIRED)
 find_package(Thrust REQUIRED CONFIG)
+find_package(OpenCV REQUIRED)
+#find_package(Iridescence REQUIRED)
+
+#add_subdirectory(loop_closure_detector)
 
 thrust_create_target(Thrust)
 
@@ -57,11 +61,12 @@ set(STDGPU_BUILD_TESTS OFF CACHE INTERNAL "")
 
 FetchContent_MakeAvailable(stdgpu)
 
-#)
 
 
 # Enable relaxed constexpr for all CUDA compilations
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
+
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME}_lib SHARED
   src/Pipeline.cpp
@@ -70,10 +75,23 @@ add_library(${PROJECT_NAME}_lib SHARED
   #src/cuda/GPUVoxelHashMap.cu
   #src/cuda/GPURegistration.cu
   src/cuda/MotionCompensation.cu
+  #$<TARGET_OBJECTS:loop_closure_detector>
 )
+
+# scripts section
+add_executable(cpu_pipeline_timings benchmarks/cpu_pipeline_timings.cpp)
+target_include_directories(cpu_pipeline_timings PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(cpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
+
+#add_executable(gpu_pipeline_timings benchmarks/gpu_pipeline_timings.cpp)
+#target_link_libraries(gpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
 
 add_executable(odom_bin_generator scripts/odom_read_into_cloud_save.cpp)
 target_link_libraries(odom_bin_generator PRIVATE ${PROJECT_NAME}_lib)
+
+#scripts section end
 
 # Propagate include dirs and CUDA/TPLs via the shared lib
 #target_link_libraries(bench_icp PRIVATE ${PROJECT_NAME}_lib)
@@ -103,6 +121,9 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   CUDA::cublas
   CUDA::curand
   TBB::tbb
+  stdgpu::stdgpu
+  ${OpenCV_LIBS}
+  #Iridescence::Iridescence
 )
 
 target_include_directories(${PROJECT_NAME}_lib
@@ -113,12 +134,18 @@ target_include_directories(${PROJECT_NAME}_lib
 enable_testing()
 
 add_executable(MotionCompensationTest
-  test/MotionCompensation.cpp
+  test/TestMotionCompensation.cpp
+)
+
+target_include_directories(MotionCompensationTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(
   MotionCompensationTest
   GTest::gtest_main
+  ${PROJECT_NAME}_lib
 )
 
 include(GoogleTest)
@@ -129,6 +156,3 @@ set_target_properties(${PROJECT_NAME}_lib PROPERTIES
   CUDA_SEPARABLE_COMPILATION ON
   CUDA_RESOLVE_DEVICE_SYMBOLS ON
 )
-
-
-

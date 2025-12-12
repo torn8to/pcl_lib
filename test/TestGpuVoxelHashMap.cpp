@@ -59,7 +59,7 @@ class FuzzedVoxelMapPointInsertionMatchCPUGPU: public testing::Test {
     unsigned int num_tests = 10;
 };
 
-TEST_F(FuzzedVoxelHashMaphaviorMatchTestCPUGPU, TestCPUGPUApproxBehaviorMatch){
+TEST_F(FuzzedVoxelMapbehaviorPointAddBulkMatchTestCPUGPU, TestCPUGPUApproxBehaviorMatch){
     VoxelMap host_map;
     GpuVoxelHashMap gpu_map;
     for(auto test_it =  test_data.begin(); test_it != test_data.end(); ++test_it){

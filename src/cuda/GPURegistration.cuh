@@ -1,21 +1,31 @@
 #pragma once
 
 #include "GPUVoxelHashMap.cuh"
-#include <thrust/iterator/zip_iterator.h>
-#include <thrust/pair.h>
-#include <thrust/tuple.h>
+#include "Transform.cuh"
+#include <cuda/std/numeric>
 
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/reduce.h>
-
-#include <vector_types.h>
+#include <stdgpu/unordered_map.cuh>
+#include <stdgpu/unordered_set.cuh>
 
 #include <Eigen/Dense>
+#include <Eigen/Core>
 #include <sophus/se3.hpp>
 #include <utility>
 #include <vector>
+
+
+namespace Eigen {
+using Matrix6d = Eigen::Matrix<double, 6, 6>;
+using Matrix36d = Eigen::Matrix<double, 3, 6>;
+using Vector6d = Eigen::Matrix<double, 6, 1>;
+} // namespace Eigen
+
+using Vector6dDNA = Eigen::Matrix<double, 6, 1, Eigen::DontAlign>;
+using Vector3dDNA = Eigen::Matrix<double, 3, 1, Eigen::DontAlign>;
+using Vector3iDNA = Eigen::Matrix<int, 3, 1, Eigen::DontAlign>;
+using Matrix6dDNA = Eigen::Matrix<double, 6, 6, Eigen::DontAlign;
+
+
 
 template <int PointsPerVoxel, int InitialCapacity> class GPURegistration {
 public:
@@ -25,7 +35,8 @@ public:
   Sophus::SE3d alignPointsToMap(const std::vector<Eigen::Vector3d> &points,
                                 const GPUVoxelHashMap<PointsPerVoxel, InitialCapacity> &voxel_map,
                                 const Sophus::SE3d &initial_guess,
-                                double max_correspondence_distance, double kernel_scale);
+                                double max_correspondence_distance,
+                                double kernel_scale);
 
 private:
   int max_num_iterations_;

@@ -10,20 +10,18 @@
 
 namespace cloud {
 
-struct PipelineConfig {
+struct GpuPipelineConfig {
   double max_distance = 100.0;
   double voxel_factor = 100;
   double voxel_resolution_alpha = 1.5;
   double voxel_resolution_beta = 0.5; 
   bool imu_integration_enabled = false;
-  int max_points_per_voxel = 27;
-  int num_threads = 16;
+  //int max_points_per_voxel = 27;
   int num_iterations = 500;
   double convergence = 1e-4;
   bool odom_downsample = true;
   double initial_threshold = 0.5;
   double min_motion_threshold = 0.1;
-  int lfu_prune_interval = 20;
 };
 
 class Pipeline {
@@ -75,7 +73,7 @@ public:
    * @brief Gets the map points
    * @return Vector of points in the map
    */
-  std::vector<Eigen::Vector3d> getMap() { return voxel_map_.cloud(); }
+  std::vector<Eigen::Vector3d> getMap() {return voxel_map_.cloud();}
 
   /**
    * @brief Removes points from a cloud that are beyond the maximum distance from origin
@@ -118,16 +116,17 @@ private:
   Sophus::SE3d current_position_;
   Sophus::SE3d pose_diff_;
   AdaptiveThreshold threshold;
+
   double voxel_factor_;
   double max_distance_;
   double voxel_resolution_alpha_;
   double voxel_resolution_beta_;
+
   bool imu_integration_enabled_;
   int max_points_per_voxel_;
   bool odom_voxel_downsample_;
-  VoxelMap voxel_map_;
-  int lfu_prune_counter_;  // Counter to track when to prune via LFU
-  int lfu_prune_interval_; // Interval for LFU pruning
+
+  GPUVoxelMap voxel_map_;
 };
 
 } // namespace cloud
