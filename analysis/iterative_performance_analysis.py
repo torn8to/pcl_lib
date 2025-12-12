@@ -2,46 +2,66 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-gpu_pipeline_timings:np.ndarray = np.fromfile("../data/8_cpu_pipeline_timestamps.bin", dtype=np.float64)
-cpu_pipeline_timings:np.ndarray = np.fromfile("../data/cpu_pipeline_timestamps.bin", dtype=np.float64)
+cpu8_pipeline_timings: np.ndarray = np.fromfile("../data/8_cpu_pipeline_timestamps.bin", dtype=np.float64)
+cpu16_pipeline_timings: np.ndarray = np.fromfile("../data/16_cpu_pipeline_timestamps.bin", dtype=np.float64)
 
 # Calculate averages
-cpu_avg = np.mean(cpu_pipeline_timings)
-gpu_avg = np.mean(gpu_pipeline_timings)
+cpu_avg = np.mean(cpu16_pipeline_timings)
+cpu8_avg = np.mean(cpu8_pipeline_timings)
 
-#box and whisker plot
-fig, axs = plt.subplots(3,1, figsize=(10,12))
+# box and whisker plot + combined histogram
+fig, axs = plt.subplots(2, 1, figsize=(10, 8))
 
-axs[0].boxplot([gpu_pipeline_timings, cpu_pipeline_timings],
-    label=["gpu icp","cpu_icp"])
-axs[0].set_title("box and whisker plot of odometry pipeline timings")
-axs[0].set_xlabel("pipeline")
-axs[0].set_ylabel("time")
+# Box plot
+axs[0].boxplot(
+    [cpu8_pipeline_timings, cpu16_pipeline_timings],
+    tick_labels=["8 core icp", "16 core icp"]
+)
+axs[0].set_title("Box and Whisker Plot of Odometry Pipeline Timings")
+axs[0].set_xlabel("Pipeline")
+axs[0].set_ylabel("Time")
+axs[0].axhline(
+    y=0.1,
+    color="grey",
+    linestyle="--",
+    linewidth=1.5,
+    label="0.1 s 10hz lidar rate" 
+)
+axs[0].legend(loc="upper right")
 
-cpu_hist_count, cpu_hist_bins = np.histogram(cpu_pipeline_timings, bins=256)
-axs[1].stairs(cpu_hist_count, cpu_hist_bins)
-axs[1].axvline(cpu_avg, color='r', linestyle='--', linewidth=2, label=f'16 coreCPU Avg: {cpu_avg:.4f}')
-axs[1].annotate(f'Avg: {cpu_avg:.4f}', xy=(cpu_avg, np.max(cpu_hist_count)), 
+# Combined histogram
+
+bins = 128
+cpu_hist_count, cpu_hist_bins = np.histogram(cpu16_pipeline_timings, bins=bins)
+cpu8_hist_count, cpu8_hist_bins = np.histogram(cpu8_pipeline_timings, bins=bins)
+
+cpu_plot = axs[1].stairs(cpu_hist_count, cpu_hist_bins, color='tab:blue', label="16 core Histogram")
+gpu_plot = axs[1].stairs(cpu8_hist_count, cpu8_hist_bins, color='tab:orange', label="8 core Histogram")
+
+cpu_line = axs[1].axvline(cpu_avg, color='tab:blue', linestyle='--', linewidth=2, label=f'16 core Avg: {cpu_avg:.4f}')
+gpu_line = axs[1].axvline(cpu8_avg, color='tab:orange', linestyle='--', linewidth=2, label=f'8 core Avg: {cpu8_avg:.4f}')
+
+axs[1].annotate(f'CPU Avg: {cpu_avg:.4f}',
+                xy=(cpu_avg, np.max(cpu_hist_count)),
                 xytext=(cpu_avg, np.max(cpu_hist_count) * 0.9),
-                arrowprops=dict(arrowstyle='->', color='r'),
-                fontsize=10, ha='center', color='r')
-axs[1].set_title("CPU Pipeline Timings Histogram")
-axs[1].set_xlabel("time")
-axs[1].set_ylabel("count")
+                arrowprops=dict(arrowstyle='->', color='tab:blue'),
+                fontsize=10,
+                ha='center',
+                color='tab:blue')
+
+axs[1].annotate(f'8 core Avg: {cpu8_avg:.4f}',
+                xy=(cpu8_avg, np.max(cpu8_hist_count)),
+                xytext=(cpu8_avg, np.max(cpu8_hist_count) * 0.9),
+                arrowprops=dict(arrowstyle='->', color='tab:orange'),
+                fontsize=10,
+                ha='center',
+                color='tab:orange')
+
+axs[1].set_title("Pipeline Timings Histogram")
+axs[1].set_xlabel("Time")
+axs[1].set_ylabel("Count")
 axs[1].legend()
 
-gpu_hist_count, gpu_hist_bins = np.histogram(gpu_pipeline_timings, bins=256)
-axs[2].stairs(gpu_hist_count, gpu_hist_bins)
-axs[2].axvline(gpu_avg, color='r', linestyle='--', linewidth=2, label=f'8 core Avg: {cpu_avg:.4f}')
-axs[2].annotate(f'Avg: {gpu_avg:.4f}', xy=(gpu_avg, np.max(gpu_hist_count)), 
-                xytext=(gpu_avg, np.max(gpu_hist_count) * 0.9),
-                arrowprops=dict(arrowstyle='->', color='r'),
-                fontsize=10, ha='center', color='r')
-axs[2].set_title("CPU Pipeline Timings Histogram")
-axs[2].set_xlabel("time")
-axs[2].set_ylabel("count")
-axs[2].legend()
-
-#plt.tight_layout()
+plt.tight_layout()
 plt.show()
 
