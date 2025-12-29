@@ -26,20 +26,20 @@ __device__ __inline__ void releaseLock(int* lock){
  * 
  */
 
-__device__  __inline__ void pointToVoxel(Vector3dDNA* points,
-                                               Vector3iDNA* voxels,
-                                               double voxel_resolution,
-                                               int index) {
-  voxels[index][0] = __double2int_rd(points[index][0]/voxel_resolution);
-  voxels[index][1] = __double2int_rd(points[index][1]/voxel_resolution);
-  voxels[index][2] = __double2int_rd(points[index][2]/voxel_resolution);
+__device__  __inline__ Eigen::Vector3iDNA pointToVoxel(const Vector3dDNA point,
+                                               const double voxel_resolution) {
+  return Eigen::Vector3iDNA(
+    __double2int_rd(point.x()/voxel_resolution),
+    __double2int_rd(point.y()/voxel_resolution),
+    __double2int_rd(point.z()/voxel_resolution)
+  );
 }
 
 
-__global__ void addPointToVoxelKernel(VoxelData* voxel_data,
-                                Vector3dDNA* point,
+__global__ void addPointToVoxelKernel(Vector3dDNA* points,
                                 const double resolution_spacing){
   unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+  Eigen::Vector3iDNA voxel = pointToVoxel(points[tidx], resolution_spacing); 
   acquireLock(&voxel_data[tidx]->lock);
   // if full  do nothing and releaseLock() if empty add the point at zero and post increment
   if(voxel_data[tidx]->points_counter == MAXPOINTSPERVOXEL){
@@ -68,49 +68,33 @@ __global__ void addPointToVoxelKernel(VoxelData* voxel_data,
 }
 
 
-__global__ void checkIfVoxelExistsAndAddVoxelKernel(Vector3dDNA* points,
-                                         Vector3iDNA* voxels,
-                                         stdgpu::unordered_map map_,
+__global__ void checkIfVoxelExistsAndAddVoxel(Vector3dDNA* points,
+                                         stdgpu::unordered_map<Eigen::Vector3iDNA, VoxelData> map_,
                                          int N){
   //unsigned int tidx = threadIdx.x;
   unsigned int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if(gtidx >= N) return;
-  pointToVoxel(&points[gtidx], &voxels[gtidx]);
+  if(gtidx < N){
+  Eigen::Vector3i voxel = pointToVoxel(&points[gtidx]);
 
   // seems redundant but isnt as the lock does not need to be acquired contain already 
   // existing voxels most of the time voxels are already inserted but in cases it isn't this is not recomended
-  if(!map_.map.contains[voxel[]]){
+  if(!map_.map.contains[voxel]){
     VoxelData* vd = &map_.map.contains(vd);
     acquireLock(&map_.lock);
-    if(!map_.map.contains[voxel[]]){
+    if(!map_.map.contains[voxel]){
       VoxelData vd;
-      map_.insert(voxels[gtidx], vd);
+      map_.insert(voxel, vd);
     }
     releaseLock(&map_.lock);
-  }
   __syncwarps();
-}
-
-__global__  void getVoxelPointKernel(GpuVoxelHashMap map_,
-                                     Vector3dDNA* points,
-                                     Vector3iDNA* voxel,
-                                     int* num_points){
-  VoxelData* vd = map_.find(voxel[0]);
-  int[0] = vd->num_points;
-  points[0] = vd->points;
-
-
-  
-
-
+  };
 }
 
 
 }
 
-void GPUVoxelHashMap<PointsPerVoxel, InitialCapacity>::addPoints(const std::vector<Eigen::Vector3d> &points) {
-  std::size_t number_of_points_ = points.size();
+void GPUVoxelHashMap::addPoints(const std::vector<Eigen::Vector3d> &points) {
+  std::size_t number_of_points = points.size();
 
   Vector3dDNA* device_points;
   cudaMalloc((void**) &device_points, number_of_points * sizeof(Vector3dDNA));
@@ -141,10 +125,7 @@ void GPUVoxelHashMap<PointsPerVoxel, InitialCapacity>::addPoints(const std::vect
     gpu_voxel_map_,
     device_points,
     number_of_points);
-
 }
-
-
 
 /**
 * @brief 

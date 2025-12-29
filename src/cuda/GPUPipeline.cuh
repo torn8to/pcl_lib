@@ -14,9 +14,9 @@ struct GpuPipelineConfig {
   double max_distance = 100.0;
   double voxel_factor = 100;
   double voxel_resolution_alpha = 1.5;
-  double voxel_resolution_beta = 0.5; 
+  double voxel_resolution_beta = 0.5;
   bool imu_integration_enabled = false;
-  //int max_points_per_voxel = 27;
+  // int max_points_per_voxel = 27;
   int num_iterations = 500;
   double convergence = 1e-4;
   bool odom_downsample = true;
@@ -52,7 +52,47 @@ public:
   std::tuple<Sophus::SE3d, std::vector<Eigen::Vector3d>>
   odometryUpdate(std::vector<Eigen::Vector3d> &cloud,
                  const Sophus::SE3d &external_guess = Sophus::SE3d(),
-                 bool use_external_guess = false);
+                 bool use_external_guess = false) {
+    std::vector<Eigen::Vector3d> cloud_voxel_odom;
+    if (odom_voxel_downsample_) {
+      cloud_voxel_odom =
+          voxelDownsample(cloud, max_distance_ / voxel_factor_ * voxel_resolution_beta_);
+    } else {
+      cloud_voxel_odom = cloud;
+    }
+    Sophus::SE3d initial_guess;
+
+    if (use_external_guess) {
+      initial_guess = external_guess;
+    } else {
+      // assume kiss_icp motion model
+      initial_guess = position() * pose_diff_;
+    }
+
+    const double sigma = threshold.computeThreshold(); // adpative thresholding for kiss icp
+    Sophus::SE3d new_position = registration_.alignPointsToMap(cloud_voxel_odom, voxel_map_,
+                                                               initial_guess, 3.0 * sigma, sigma);
+
+    const auto model_error = new_position.inverse() * initial_guess;
+    threshold.updateModelDeviation(model_error);
+
+    std::vector<Eigen::Vector3d> cloud_voxel_mapping =
+        voxelDownsample(cloud, max_distance_ / voxel_factor_ * voxel_resolution_alpha_);
+
+    std::vector<Eigen::Vector3d> cloud_voxel_mapping_transformed =
+        voxel_map_.transform_cloud(cloud_voxel_mapping, new_position);
+
+    std::vector<Eigen::Vector3d> cloud_voxel_odom_transformed =
+        voxel_map_.transform_cloud(cloud_voxel_odom, new_position);
+
+    pose_diff_ = position().inverse() * new_position;
+
+    voxel_map_.addPoints(cloud_voxel_mapping_transformed);
+    voxel_map_.removePointsFarFromOrigin(new_position.translation());
+
+    updatePosition(new_position);
+    return std::make_tuple(new_position, cloud_voxel_mapping);
+  }
 
   /**
    * @brief Adds points to the map
@@ -73,7 +113,7 @@ public:
    * @brief Gets the map points
    * @return Vector of points in the map
    */
-  std::vector<Eigen::Vector3d> getMap() {return voxel_map_.cloud();}
+  std::vector<Eigen::Vector3d> getMap() { return voxel_map_.cloud(); }
 
   /**
    * @brief Removes points from a cloud that are beyond the maximum distance from origin

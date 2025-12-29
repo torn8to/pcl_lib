@@ -1,5 +1,6 @@
 #include <Eigen/Core>
 #include <sophus/se3.hpp>
+#include "LieAlgebra.cuh"
 
 #include <vector_types.h>
 
@@ -10,3 +11,7 @@ using Vector6dDNA = Eigen::Matrix<double, 6, 1, Eigen::DontAlign>;
 std::vector<Eigen::Vector3d> motionDeSkewGpu(const std::vector<Eigen::Vector3d> &points,
                                              const std::vector<double> &cloud_timestamps,
                                              const Sophus::SE3d &relative_motion);
+
+std::vector<Eigen::Vector3d> motionDeSkewGpuAsync(const std::vector<Eigen::Vector3d> &points,
+                                                  const std::vector<double> &cloud_timestamps,
+                                                  const Sophus::SE3d &relative_motion);
