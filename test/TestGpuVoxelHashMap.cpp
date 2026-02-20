@@ -12,29 +12,6 @@
 #include <vector>
 #include <tuple>
 
-bool pointsInVoxelsMatch(std::vector<Eigen::Vector3d> &source, std::vector<Eigen::Vector3d> &testable){
-    if(source.size() == testable.size()) return false;
-    std::for_each(source.begin(), source.end(), [&](const auto Eigen::Vector3d points){
-        if(!std::any_of(testable.begin(),testable.end(), [&](const auto Eigen::Vector3d t_point){
-            return t_point == point;
-        })) return false;
-    });
-    return true;
-}
-
-// generate points in a sqaure
-std::vector<Eigen::Vector3d>  generate_random_points(const unsigned int num_points = 1000,
-                                                     const double max = 100.0,
-                                                     const double min = 0.0){
-  std::vector<Eigen::Vector3d> random_points;
-  random_points.reserve(num_points);
-  for( unsigned int i = 0; i < num_points; ++i){
-    Eigen::Vector3d random_point = Eigen::Vector3d::Random() * (max-min);
-    random_points.emplace_back(random_point);
-  }
-  return random_points;
-}
-
 
 class FuzzedVoxelMapPointInsertionMatchCPUGPU: public testing::Test {
   protected:

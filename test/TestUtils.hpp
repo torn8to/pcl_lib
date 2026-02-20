@@ -66,8 +66,8 @@ bool vectorPointsAreApproximate(const std::vector<Eigen::Vector3d> points1, cons
 
 bool pointsInVoxelsMatch(std::vector<Eigen::Vector3d> &source, std::vector<Eigen::Vector3d> &testable){
     if(source.size() == testable.size()) return false;
-    std::for_each(source.begin(), source.end(), [&](const auto Eigen::Vector3d points){
-        if(!std::any_of(testable.begin(),testable.end(), [&](const auto Eigen::Vector3d t_point){
+    std::for_each(source.begin(), source.end(), [&](const  Eigen::Vector3d &point){
+        if(!std::any_of(testable.begin(),testable.end(), [&](const Eigen::Vector3d &t_point){
             return t_point == point;
         })) return false;
     });
