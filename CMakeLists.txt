@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)   
 
+# Build all libraries (including dependencies like stdgpu) with -fPIC so
+# they can be linked into shared objects.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 #include(cmake/CPM.cmake)
 
 include(CheckLanguage)
@@ -15,13 +19,10 @@ include(FetchContent)
 find_package(Eigen3 REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(TBB REQUIRED)
-find_package(Thrust REQUIRED CONFIG)
 find_package(OpenCV REQUIRED)
 #find_package(Iridescence REQUIRED)
 
 #add_subdirectory(loop_closure_detector)
-
-thrust_create_target(Thrust)
 
 
 # Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
@@ -61,21 +62,48 @@ set(STDGPU_BUILD_TESTS OFF CACHE INTERNAL "")
 
 FetchContent_MakeAvailable(stdgpu)
 
-
+# stdgpu (when built with CMake 3.23+ FILE_SET) does not set BUILD_INTERFACE include
+# dirs, so we must add them so CUDA files that #include <stdgpu/...> can find headers.
+target_include_directories(stdgpu PUBLIC
+  $<BUILD_INTERFACE:${stdgpu_SOURCE_DIR}/src>
+  $<BUILD_INTERFACE:${stdgpu_BINARY_DIR}/include>
+)
 
 # Enable relaxed constexpr for all CUDA compilations
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+add_library(${PROJECT_NAME}_lib_gpu SHARED
+  src/cuda/GPUVoxelHashMap.cu
+  #src/cuda/GPURegistration.cu
+  src/cuda/MotionCompensation.cu
+)
+target_include_directories(${PROJECT_NAME}_lib_gpu PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(${PROJECT_NAME}_lib_gpu PUBLIC
+  Eigen3::Eigen
+  Sophus::Sophus
+  stdgpu::stdgpu
+  CUDA::cusolver
+  CUDA::curand
+  CUDA::cublas
+)
+target_compile_features(${PROJECT_NAME}_lib_gpu PUBLIC cuda_std_17 cxx_std_17)
+target_compile_options(${PROJECT_NAME}_lib_gpu PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:
+    --expt-relaxed-constexpr
+    --expt-extended-lambda
+    -lineinfo
+  >
+)
+
 add_library(${PROJECT_NAME}_lib SHARED
   src/Pipeline.cpp
   src/Registration.cpp
   src/VoxelMap.cpp
-  #src/cuda/GPUVoxelHashMap.cu
-  #src/cuda/GPURegistration.cu
-  src/cuda/MotionCompensation.cu
-  #$<TARGET_OBJECTS:loop_closure_detector>
 )
 
 # scripts section
@@ -88,6 +116,12 @@ target_link_libraries(cpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
 #add_executable(gpu_pipeline_timings benchmarks/gpu_pipeline_timings.cpp)
 #target_link_libraries(gpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
 
+#add_executable(compensation_benchmark benchmarks/MotionCompensation.cpp)
+#target_include_directories(compensation_benchmark PRIVATE
+#  ${CMAKE_CURRENT_SOURCE_DIR}
+#  ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks
+#)
+#target_link_libraries(compensation_benchmark PRIVATE ${PROJECT_NAME}_lib)
 add_executable(odom_bin_generator scripts/odom_read_into_cloud_save.cpp)
 target_link_libraries(odom_bin_generator PRIVATE ${PROJECT_NAME}_lib)
 
@@ -117,11 +151,7 @@ target_include_directories(${PROJECT_NAME}_lib PUBLIC
 target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   Eigen3::Eigen
   Sophus::Sophus
-  CUDA::cudart
-  CUDA::cublas
-  CUDA::curand
   TBB::tbb
-  stdgpu::stdgpu
   ${OpenCV_LIBS}
   #Iridescence::Iridescence
 )
@@ -133,23 +163,53 @@ target_include_directories(${PROJECT_NAME}_lib
 # testing stuff
 enable_testing()
 
-add_executable(MotionCompensationTest
-  test/TestMotionCompensation.cpp
+#add_executable(MotionCompensationTest
+#  test/TestMotionCompensation.cpp
+#)
+
+#target_include_directories(MotionCompensationTest PRIVATE
+#  ${CMAKE_CURRENT_SOURCE_DIR}/src
+#  ${CMAKE_CURRENT_SOURCE_DIR}/include
+#)
+
+#target_link_libraries(
+#  MotionCompensationTest
+#  GTest::gtest_main
+#  ${PROJECT_NAME}_lib
+#)
+
+add_executable(GpuVoxelHashMapTest
+  test/TestGpuVoxelHashMap.cpp
 )
 
-target_include_directories(MotionCompensationTest PRIVATE
+# Ensure the test is compiled with the CUDA device compiler so that
+# CUDA-only headers such as stdgpu's <stdgpu/...> can be used safely.
+set_source_files_properties(test/TestGpuVoxelHashMap.cpp
+  PROPERTIES LANGUAGE CUDA)
+
+target_include_directories(GpuVoxelHashMapTest PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-
 target_link_libraries(
-  MotionCompensationTest
+  GpuVoxelHashMapTest
   GTest::gtest_main
   ${PROJECT_NAME}_lib
+  ${PROJECT_NAME}_lib_gpu
 )
 
+target_compile_features(GpuVoxelHashMapTest PUBLIC cuda_std_17 cxx_std_17)
+
+target_compile_options(GpuVoxelHashMapTest PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:
+    --expt-relaxed-constexpr
+    --expt-extended-lambda
+    -lineinfo
+  >
+)
 include(GoogleTest)
-gtest_discover_tests(MotionCompensationTest)
+gtest_discover_tests(GpuVoxelHashMapTest)
+#gtest_discover_tests(MotionCompensationTest)
 
 # Set CUDA properties
 set_target_properties(${PROJECT_NAME}_lib PROPERTIES
