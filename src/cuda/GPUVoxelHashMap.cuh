@@ -4,6 +4,7 @@
 #include <cuda/std/limits>
 #include <cuda_runtime.h>
 #include <stdgpu/unordered_map.cuh>
+#include <algorithm>
 
 
 template <int max_points_per_voxel = 27>
@@ -35,7 +36,10 @@ struct VoxelKey_equal {
   };
 };
 
-
+struct VoxelFlag{
+  Vector3iDNA key;
+  bool flag;
+};
 
 template <typename voxel_data = DefaultVoxelData>
 class GPUSparseVoxelMap {
@@ -46,7 +50,7 @@ public:
   using Value = voxel_data; //templated value assigned
   using VoxelData = Value;
   using VoxelMap = stdgpu::unordered_map<Key, Value, Hash, KeyEqual>;
-  using ConstIterator = VoxelMap::const_iterator;
+  using ConstIterator = typename VoxelMap::const_iterator;
 
   GPUSparseVoxelMap(double voxel_resolution = 1.0,
                   int initial_capacity = 100001,
@@ -57,12 +61,12 @@ public:
   std::vector<Eigen::Vector3d> cloud();
   void removePointsFarFromLocation(Eigen::Vector3d const &point);
   void addPoints(const std::vector<Eigen::Vector3d> &points);
-  std::vector<Eigen::Vector3d> getVoxelPoints(Eigen::Vector3i &voxel);
+  std::vector<Eigen::Vector3d> getVoxelPoints(const Eigen::Vector3i &voxel);
 
   VoxelMap gpu_map_;
 private:
   static constexpr int max_points_per_voxel = VoxelData::max_points;
-
+  VoxelFlag* flag_;
   double voxel_resolution_;
   double resolution_spacing_;
   double max_range_;
@@ -71,4 +75,4 @@ private:
 
 // Default alias preserving previous behavior (27 points per voxel)
 
-using GPUSparseVoxelMapDefault = GPUSparseVoxelMap;
+using GPUSparseVoxelMapDefault = GPUSparseVoxelMap<DefaultVoxelData>;

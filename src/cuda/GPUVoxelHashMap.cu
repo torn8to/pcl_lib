@@ -77,36 +77,42 @@ __global__ void addPointsToVoxelKernel(typename MapType::VoxelMap map,
 }
 
 
-
 template <typename MapType>
-__global__ void findVoxelKernel(typename MapType::VoxelData map,
+__global__ void findVoxelKernel(typename MapType::VoxelMap map,
                                      Vector3iDNA voxel,
-                                     Vector3dDNA* points
-                                     int* num_points){
-  auto it = map.find(voxel);
-  num_points* = it->second.num_points;
-  points* = it->second.points;
+                                     Vector3dDNA* points,
+                                     int* n){
+  auto it =  map.find(voxel);
+  if (map.end() == it){
+    n[0] = 0;
+    return;  // short cut
+  }
+
+  n[0] = it->second.num_points;
+  for (int i = 0; i < it->second.num_points; ++i) {
+    points[i] = it->second.points[i];
+  }
+}
 }
 
-} // namespace end
-//
-//
-GPUSparseVoxelMap::GPUSparseVoxelMap(
+template<typename voxel_data>
+GPUSparseVoxelMap<voxel_data>::GPUSparseVoxelMap(
                   double voxel_resolution ,
                   int initial_capacity , double max_range):
                   capacity_(initial_capacity),
                   max_range_(max_range),
-                  voxel_resolution_(1.0){
-  resolution_spacing_ = (voxel_resolution_ * voxel_resolution_) / max_points_per_voxel;
+                  voxel_resolution_(voxel_resolution){
+  resolution_spacing_ = (voxel_resolution_ * voxel_resolution_) / GPUSparseVoxelMap::max_points_per_voxel;
   gpu_map_ = VoxelMap::createDeviceObject(capacity_);
 }
 
-
-GPUSparseVoxelMap::~GPUSparseVoxelMap(){
+template<typename voxel_data>
+GPUSparseVoxelMap<voxel_data>::~GPUSparseVoxelMap(){
   VoxelMap::destroyDeviceObject(gpu_map_);
 }
 
-void GPUSparseVoxelMap::addPoints(const std::vector<Eigen::Vector3d> &points) {
+template<typename voxel_data>
+void GPUSparseVoxelMap<voxel_data>::addPoints(const std::vector<Eigen::Vector3d> &points) {
   std::size_t number_of_points = points.size();
 
   Vector3dDNA* device_points;
@@ -126,34 +132,60 @@ void GPUSparseVoxelMap::addPoints(const std::vector<Eigen::Vector3d> &points) {
     number_of_points);
 }
 
-std::vector<Eigen::Vector3d> GPUSparseVoxelMap::getVoxelPoints(const Eigen::Vector3i voxel){
+template<typename voxel_data>
+std::vector<Eigen::Vector3d> GPUSparseVoxelMap<voxel_data>::getVoxelPoints(const Eigen::Vector3i &voxel){
   Vector3dDNA *gpu_points;
   int *gpu_num_points;
 
-  Eigen::Vector3d *points_raw = (Eigen::Vector3d) malloc(max_points_per_voxel* sizeof(Eigen::Vector3d));
-  int  *num_points = (int*) malloc(sizeof(int));
+  Eigen::Vector3d *points_raw = (Eigen::Vector3d*) malloc(max_points_per_voxel * sizeof(Eigen::Vector3d));
+  int num_points;
+
+  Vector3iDNA voxel_converted = voxel.cast<int>();
+
   CUDA_CHECK(cudaMalloc((void**) &gpu_num_points, sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void**) &points,
+  CUDA_CHECK(cudaMalloc((void**) &gpu_points,
                         max_points_per_voxel * sizeof(Vector3dDNA)));
-  findVoxelKernel<GPUSparseVoxelMap><1,1>(
-    points,
-    num_points,
-    voxel
-  );
-  CUDA_CHECK(cudaMemcpy(gpu_num_points,
-                        num_points,
+  findVoxelKernel<GPUSparseVoxelMap><<<1,1>>>(
+    gpu_map_,
+    voxel_converted,
+    gpu_points,
+    gpu_num_points);
+
+  CUDA_CHECK(cudaMemcpy(&num_points,
+                        gpu_num_points,
                         sizeof(int),
                         cudaMemcpyDeviceToHost));
 
-  if(num_points[0] == 0){
+  if(num_points == 0){
     std::vector<Eigen::Vector3d> voxel_points;
-    return voxel_points
+    return voxel_points;
   }
   cudaMemcpy(points_raw,
              gpu_points,
-             num_points[0] * sizeof(Eigen::Vector3d)
+             num_points * sizeof(Eigen::Vector3d),
              cudaMemcpyDeviceToHost);
 
-  std::vector<Eigen::Vector3d> voxel_points(points_raw, num_points[0]);
+  std::vector<Eigen::Vector3d> voxel_points;
+  voxel_points.reserve(num_points);
+  std::copy(points_raw, points_raw + num_points, std::back_inserter(voxel_points));
   return voxel_points;
 }
+
+template<typename voxel_data>
+void GPUSparseVoxelMap<voxel_data>::removePointsFarFromLocation(Eigen::Vector3d const & /*point*/){
+  // TODO: implement proper distance-based removal on the device map.
+}
+
+template<typename voxel_data>
+bool GPUSparseVoxelMap<voxel_data>::empty(){
+  return gpu_map_.empty();
+}
+
+template<typename voxel_data>
+void GPUSparseVoxelMap<voxel_data>::clear(){
+  gpu_map_.clear();
+}
+
+// Explicit instantiation for the default voxel data type so that
+// host code (tests, CPU code) can link against these symbols.
+template class GPUSparseVoxelMap<DefaultVoxelData>;

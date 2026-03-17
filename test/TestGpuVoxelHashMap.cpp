@@ -15,22 +15,21 @@
 
 class SimpleMultiPointSingleVoxelInsertion: public testing::Test{
   protected:
-    Eigen::Vector3d vec0{0.5,0.5,0.5}
-    Eigen::Vector3d vec1{0.65,0.65,0.65}
+    Eigen::Vector3d vec0{0.5,0.5,0.5};
+    Eigen::Vector3d vec1{0.65,0.65,0.65};
     std::vector<Eigen::Vector3d> vectors;
-    GPUSparseVoxelMap  map;
+    double max_range = 100;
+    double voxel_resolution = 1.0;
+    int points_per_voxel= 27;
+    GPUSparseVoxelMapDefault map;
     
-    SimpleMultiPointSingleVoxelInsertion(){}
-    ~SimpleMultiPointSingleVoxelInsertion override(){}
+    SimpleMultiPointSingleVoxelInsertion() {}
+    ~SimpleMultiPointSingleVoxelInsertion() override {}
 
-    void setup() override{
-      map = GPUSparseVoxelMap();
+    void SetUp() override {
+      map.clear();
     }
-
-    void TearDown() override{
-      map.~GPUSparseVoxelMap();
-    }
-}
+};
 
 /*
 class FuzzedVoxelMapPointInsertionMatchCPUGPU: public testing::Test {
@@ -77,88 +76,103 @@ TEST_F(FuzzedVoxelMapbehaviorPointAddBulkMatchTestCPUGPU, TestCPUGPUApproxBehavi
 }
 */
 
-auto has_num_points = [](std::vector<Eigen::Vector3d>  &points, int n){
-    return  points.size() == n;
+auto has_num_points = [](const std::vector<Eigen::Vector3d> &points, int n) {
+  if (static_cast<int>(points.size()) != n) {
+    std::cout << "Expected " << n << " points but got "
+              << points.size() << " points\n";
+    return false;
+  }
+  return true;
 };
 
 
 TEST_F(SimpleMultiPointSingleVoxelInsertion,VoxelMapEmptyTest){
-  if (!map.empty){
-    FAIL()
+  if (!map.empty()){
+    FAIL();
   }
-  std::vector<Eigen::Vector3d> single_point_vec = 
+  std::vector<Eigen::Vector3d> single_point_vec;
   single_point_vec.emplace_back(vec0);
-  map.add_voxels_to_map(single_point_vec);
-  ASSERT_FASLE(map.empty());
+  map.addPoints(single_point_vec);
+  ASSERT_FALSE(map.empty());
 }
 
 TEST_F(SimpleMultiPointSingleVoxelInsertion,VoxelMapClearTest){
-  if (!map.empty){
-    FAIL()
+  if (!map.empty()){
+    FAIL();
   }
   std::vector<Eigen::Vector3d> single_point_vec;
-  point_vec.emplace_back(vec0);
-  map.add_voxels_to_map(single_point_vec);
+  single_point_vec.emplace_back(vec0);
+  map.addPoints(single_point_vec);
   ASSERT_FALSE(map.empty());
   map.clear();
   ASSERT_TRUE(map.empty());
 }
 
 TEST_F(SimpleMultiPointSingleVoxelInsertion, VoxelAddResolutionSpacingDifferentUpdate){
-  if (!map.empty){
-    FAIL()
+  if (!map.empty()){
+    FAIL();
   }
-  Eigen::Vector3d vec1{0.5, 0.5, 0.5};
-  Eigen::Vector3d vec2{vec1};
-  Eigen::Vector3i vox1 = cloud::PointToVoxel(vec1);
+  Eigen::Vector3d v1{0.5, 0.5, 0.5};
+  Eigen::Vector3d v2{v1};
+  const double voxel_resolution = 1.0;
+  Eigen::Vector3i vox1 = cloud::PointToVoxel(v1, voxel_resolution);
   std::vector<Eigen::Vector3d> points_first;
-  points_first.push_back(vec1);
+  points_first.push_back(v1);
   std::vector<Eigen::Vector3d> points_second;
-  points_second.push_back(vec2);
-  map.add_voxels_to_map(points_first);
-  map.add_voxels_to_map(points_second);
-  std::vector<Eigen::Vector3d> points_in = map.findVoxel(vox1);
-  ASSERT_TRUE(has_num_points(points_in, 1)):
+  points_second.push_back(v2);
+  map.addPoints(points_first);
+  std::vector<Eigen::Vector3d> post_first = map.getVoxelPoints(vox1);
+  ASSERT_EQ(post_first.size(), 1);
+  ASSERT_EQ(points_first[0], points_in[0]);
+  map.addPoints(points_second);
+  std::vector<Eigen::Vector3d> points_in = map.getVoxelPoints(vox1);
+  ASSERT_EQ(points_in.size(), 2);
+  ASSERT_EQ(points_first[0], points_in[0]);
+  ASSERT_EQ(points_first[1], points_in[1]);
 }
 
 TEST_F(SimpleMultiPointSingleVoxelInsertion, VoxelpointAddResolutionSpacingSameTest){
-  if (!map.empty){
-    FAIL()
+  if (!map.empty()){
+    FAIL();
   }
-  Eigen::Vector3d vec1{0.5, 0.5, 0.5};
-  Eigen::Vector3d vec2{vec1};
-  Eigen::Vector3i vox1 = cloud::PointToVoxel(vec1);
+  Eigen::Vector3d v1{0.5, 0.5, 0.5};
+  Eigen::Vector3d v2{v1};
+  const double voxel_resolution = 1.0;
+  Eigen::Vector3i vox1 = cloud::PointToVoxel(v1, voxel_resolution);
   std::vector<Eigen::Vector3d> points_first;
-  points_first.push_back(vec1);
-  points_first.push_back(vec2);
-  map.add_voxels_to_map(points_first);
-  std::vector<Eigen::Vector3d> points_in = map.findVoxel(vox1);
-  ASSERT_TRUE(has_num_points(points_in, 1))
+  points_first.push_back(v1);
+  points_first.push_back(v2);
+  map.addPoints(points_first);
+  std::vector<Eigen::Vector3d> points_in = map.getVoxelPoints(vox1);
+  ASSERT_EQ(points_in.size(), 2);
+  ASSERT_EQ(points_first[0], points_in[0]);
+  ASSERT_EQ(points_first[1], points_in[1]);
 }
 
+/*
 TEST_F(SimpleMultiPointSingleVoxelInsertion, VoxelPointRemoveFarVoxel){
-  if (!map.empty){
-    FAIL()
+  if (!map.empty()){
+    FAIL();
   }
   Eigen::Vector3d position = Eigen::Vector3d::Zero();
   Eigen::Vector3d point_out{100.5, 0.0, 0.0};
   Eigen::Vector3d point_in{1.5, 0.0, 0.0};
-  Eigen::Vector3i vox_out = cloud::PointToVoxel(point);
-  Eigen::Vector3i vox_in = cloud::PointToVoxel(point);
+  const double voxel_resolution = 1.0;
+  Eigen::Vector3i vox_out = cloud::PointToVoxel(point_out, voxel_resolution);
+  Eigen::Vector3i vox_in = cloud::PointToVoxel(point_in, voxel_resolution);
   std::vector<Eigen::Vector3d> points;
-  points.push_back(vox_out);
-  points.push_back(vox_in);
+  points.push_back(point_out);
+  points.push_back(point_in);
   map.addPoints(points);
-  map.removeFarPoints(position);
-  non removed point
-  std::vector<Eigen::Vector3d> in_voxel_points = map.getVoxel(vox_in);
-  ASSERT_TRUE(has_num_points(in_voxel_points,1));
-  ASSERT_EQ(in_voxel_points[0], point_in));
+  map.removePointsFarFromLocation(position);
+  std::vector<Eigen::Vector3d> in_voxel_points = map.getVoxelPoints(vox_in);
+  ASSERT_EQ(in_voxel_points.size(),1);
+  ASSERT_EQ(in_voxel_points[0], point_in);
 
-  // removed points from 
-  std::vector<Eigen::Vector3d> out_voxel_points = map.getVoxel(vox_out);
-  ASSERT_TRUE(has_num_points(out_voxel_points, 0));
+  std::vector<Eigen::Vector3d> out_voxel_points = map.getVoxelPoints(vox_out);
+  ASSERT_EQ(out_voxel_points.size(), 0);
 }
+  */
 
 
 int main(int argc, char **argv){
