@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.15)
-project(pcl_lib VERSION 1.0
-                LANGUAGES CXX CUDA)
+project(pcl_lib VERSION 1.0 LANGUAGES CXX)
+
+option(USE_CUDA "Build with CUDA support" ON)
+
+if(USE_CUDA)
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        enable_language(CUDA)
+    else()
+        message(STATUS "CUDA compiler not found. Disabling CUDA support.")
+        set(USE_CUDA OFF)
+    endif()
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,18 +36,13 @@ find_package(OpenCV REQUIRED)
 
 #add_subdirectory(loop_closure_detector)
 
+if(USE_CUDA)
+    # Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
+    set(CMAKE_CUDA_ARCHITECTURES 86)
 
-# Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
-set(CMAKE_CUDA_ARCHITECTURES 86)
-
-find_package(CUDAToolkit REQUIRED)
-find_package(CUDA REQUIRED)
-
-check_language(CUDA)
-
-
-# Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
-set(CMAKE_CUDA_ARCHITECTURES 86)
+    find_package(CUDAToolkit REQUIRED)
+    find_package(CUDA REQUIRED)
+endif()
 
 FetchContent_Declare(
   googletest
@@ -49,56 +56,60 @@ FetchContent_MakeAvailable(googletest)
 
 
 
-FetchContent_Declare(
-    stdgpu
-    GIT_REPOSITORY https://github.com/stotko/stdgpu.git
-    GIT_TAG        master
-)
+if(USE_CUDA)
+    FetchContent_Declare(
+        stdgpu
+        GIT_REPOSITORY https://github.com/stotko/stdgpu.git
+        GIT_TAG        master
+    )
 
-# Exclude unneeded parts from the build
-set(STDGPU_BUILD_EXAMPLES OFF CACHE INTERNAL "")
-set(STDGPU_BUILD_BENCHMARKS OFF CACHE INTERNAL "")
-set(STDGPU_BUILD_TESTS OFF CACHE INTERNAL "")
+    # Exclude unneeded parts from the build
+    set(STDGPU_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+    set(STDGPU_BUILD_BENCHMARKS OFF CACHE INTERNAL "")
+    set(STDGPU_BUILD_TESTS OFF CACHE INTERNAL "")
 
-FetchContent_MakeAvailable(stdgpu)
+    FetchContent_MakeAvailable(stdgpu)
 
-# stdgpu (when built with CMake 3.23+ FILE_SET) does not set BUILD_INTERFACE include
-# dirs, so we must add them so CUDA files that #include <stdgpu/...> can find headers.
-target_include_directories(stdgpu PUBLIC
-  $<BUILD_INTERFACE:${stdgpu_SOURCE_DIR}/src>
-  $<BUILD_INTERFACE:${stdgpu_BINARY_DIR}/include>
-)
+    # stdgpu (when built with CMake 3.23+ FILE_SET) does not set BUILD_INTERFACE include
+    # dirs, so we must add them so CUDA files that #include <stdgpu/...> can find headers.
+    target_include_directories(stdgpu PUBLIC
+      $<BUILD_INTERFACE:${stdgpu_SOURCE_DIR}/src>
+      $<BUILD_INTERFACE:${stdgpu_BINARY_DIR}/include>
+    )
 
-# Enable relaxed constexpr for all CUDA compilations
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
+    # Enable relaxed constexpr for all CUDA compilations
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
+endif()
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_library(${PROJECT_NAME}_lib_gpu SHARED
-  src/cuda/GPUVoxelHashMap.cu
-  #src/cuda/GPURegistration.cu
-  src/cuda/MotionCompensation.cu
-)
-target_include_directories(${PROJECT_NAME}_lib_gpu PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-target_link_libraries(${PROJECT_NAME}_lib_gpu PUBLIC
-  Eigen3::Eigen
-  Sophus::Sophus
-  stdgpu::stdgpu
-  CUDA::cusolver
-  CUDA::curand
-  CUDA::cublas
-)
-target_compile_features(${PROJECT_NAME}_lib_gpu PUBLIC cuda_std_17 cxx_std_17)
-target_compile_options(${PROJECT_NAME}_lib_gpu PRIVATE
-  $<$<COMPILE_LANGUAGE:CUDA>:
-    --expt-relaxed-constexpr
-    --expt-extended-lambda
-    -lineinfo
-  >
-)
+if(USE_CUDA)
+    add_library(${PROJECT_NAME}_lib_gpu SHARED
+      src/cuda/GPUVoxelHashMap.cu
+      #src/cuda/GPURegistration.cu
+      src/cuda/MotionCompensation.cu
+    )
+    target_include_directories(${PROJECT_NAME}_lib_gpu PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(${PROJECT_NAME}_lib_gpu PUBLIC
+      Eigen3::Eigen
+      Sophus::Sophus
+      stdgpu::stdgpu
+      CUDA::cusolver
+      CUDA::curand
+      CUDA::cublas
+    )
+    target_compile_features(${PROJECT_NAME}_lib_gpu PUBLIC cuda_std_17 cxx_std_17)
+    target_compile_options(${PROJECT_NAME}_lib_gpu PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:
+        --expt-relaxed-constexpr
+        --expt-extended-lambda
+        -lineinfo
+      >
+    )
+endif()
 
 add_library(${PROJECT_NAME}_lib SHARED
   src/Pipeline.cpp
@@ -130,16 +141,20 @@ target_link_libraries(odom_bin_generator PRIVATE ${PROJECT_NAME}_lib)
 # Propagate include dirs and CUDA/TPLs via the shared lib
 #target_link_libraries(bench_icp PRIVATE ${PROJECT_NAME}_lib)
 
-target_compile_features(${PROJECT_NAME}_lib PUBLIC cuda_std_17 cxx_std_17)
+if(USE_CUDA)
+    target_compile_features(${PROJECT_NAME}_lib PUBLIC cuda_std_17 cxx_std_17)
 
-target_compile_options(${PROJECT_NAME}_lib PRIVATE
-    # These flags apply only when compiling CUDA source files
-    $<$<COMPILE_LANGUAGE:CUDA>:
-        --expt-relaxed-constexpr
-        --expt-extended-lambda
-        -lineinfo
-    >
-)
+    target_compile_options(${PROJECT_NAME}_lib PRIVATE
+        # These flags apply only when compiling CUDA source files
+        $<$<COMPILE_LANGUAGE:CUDA>:
+            --expt-relaxed-constexpr
+            --expt-extended-lambda
+            -lineinfo
+        >
+    )
+else()
+    target_compile_features(${PROJECT_NAME}_lib PUBLIC cxx_std_17)
+endif()
 
 target_include_directories(${PROJECT_NAME}_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
@@ -156,9 +171,11 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   #Iridescence::Iridescence
 )
 
-target_include_directories(${PROJECT_NAME}_lib
-    PRIVATE ${CUDAToolkit_INCLUDE_DIRS}
-)
+if(USE_CUDA)
+    target_include_directories(${PROJECT_NAME}_lib
+        PRIVATE ${CUDAToolkit_INCLUDE_DIRS}
+    )
+endif()
 
 # testing stuff
 enable_testing()
@@ -178,41 +195,43 @@ enable_testing()
 #  ${PROJECT_NAME}_lib
 #)
 
-add_executable(GpuVoxelHashMapTest
-  test/TestGpuVoxelHashMap.cpp
-)
+if(USE_CUDA)
+    add_executable(GpuVoxelHashMapTest
+      test/TestGpuVoxelHashMap.cpp
+    )
 
-# Ensure the test is compiled with the CUDA device compiler so that
-# CUDA-only headers such as stdgpu's <stdgpu/...> can be used safely.
-set_source_files_properties(test/TestGpuVoxelHashMap.cpp
-  PROPERTIES LANGUAGE CUDA)
+    # Ensure the test is compiled with the CUDA device compiler so that
+    # CUDA-only headers such as stdgpu's <stdgpu/...> can be used safely.
+    set_source_files_properties(test/TestGpuVoxelHashMap.cpp
+      PROPERTIES LANGUAGE CUDA)
 
-target_include_directories(GpuVoxelHashMapTest PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-target_link_libraries(
-  GpuVoxelHashMapTest
-  GTest::gtest_main
-  ${PROJECT_NAME}_lib
-  ${PROJECT_NAME}_lib_gpu
-)
+    target_include_directories(GpuVoxelHashMapTest PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(
+      GpuVoxelHashMapTest
+      GTest::gtest_main
+      ${PROJECT_NAME}_lib
+      ${PROJECT_NAME}_lib_gpu
+    )
 
-target_compile_features(GpuVoxelHashMapTest PUBLIC cuda_std_17 cxx_std_17)
+    target_compile_features(GpuVoxelHashMapTest PUBLIC cuda_std_17 cxx_std_17)
 
-target_compile_options(GpuVoxelHashMapTest PRIVATE
-  $<$<COMPILE_LANGUAGE:CUDA>:
-    --expt-relaxed-constexpr
-    --expt-extended-lambda
-    -lineinfo
-  >
-)
-include(GoogleTest)
-gtest_discover_tests(GpuVoxelHashMapTest)
-#gtest_discover_tests(MotionCompensationTest)
+    target_compile_options(GpuVoxelHashMapTest PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:
+        --expt-relaxed-constexpr
+        --expt-extended-lambda
+        -lineinfo
+      >
+    )
+    include(GoogleTest)
+    gtest_discover_tests(GpuVoxelHashMapTest)
+    #gtest_discover_tests(MotionCompensationTest)
 
-# Set CUDA properties
-set_target_properties(${PROJECT_NAME}_lib PROPERTIES
-  CUDA_SEPARABLE_COMPILATION ON
-  CUDA_RESOLVE_DEVICE_SYMBOLS ON
-)
+    # Set CUDA properties
+    set_target_properties(${PROJECT_NAME}_lib PROPERTIES
+      CUDA_SEPARABLE_COMPILATION ON
+      CUDA_RESOLVE_DEVICE_SYMBOLS ON
+    )
+endif()
