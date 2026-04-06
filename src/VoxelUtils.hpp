@@ -28,4 +28,35 @@ std::vector<Eigen::Vector3d> voxelDownsample(std::vector<Eigen::Vector3d> &cloud
   }
   return pruned_cloud;
 }
+
+struct AdaptiveSamplingParams{
+  int min_sampled_points = 1500;
+  int max_sampled_points = 7000;
+  bool point_sampling_cap = true;
+  double float_last_voxel_size = 0.5;
+  int max_iterations = 5
+}
+
+
+std::vector<Eigen::Vector3d> adativeDegeneracyAvoidantSampling(
+    std::vector<Eigen::Vector3d>& cloud,
+    double default_voxel_size,
+    AdaptiveSamplingParams& params){
+  double voxel_size = default_voxel_size;
+  std::vector<Eigen::Vector3d> downsampled_cloud;
+  for(int i = 0; i < max_ iteraitons; ++i){
+    downsampled_cloud = voxelDownsample(cloud, voxel_size)
+    if(downsampled_cloud.size() < min_sampled_points) {
+      voxel_size *= 1.33;
+    }
+    else if(downsampled_cloud.size() > max_sampled_points){
+      voxel_size *= 0.75;
+    }
+    else break;
+  }
+  return downsampled_cloud;
+}
+
+
+
 } // namespace cloud
