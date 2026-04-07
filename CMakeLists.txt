@@ -29,7 +29,8 @@ include(FetchContent)
 
 
 find_package(Eigen3 REQUIRED)
-find_package(Sophus REQUIRED)
+
+include(third_party/sophus.cmake)
 find_package(TBB REQUIRED)
 find_package(OpenCV REQUIRED)
 #find_package(Iridescence REQUIRED)
@@ -44,41 +45,12 @@ if(USE_CUDA)
     find_package(CUDA REQUIRED)
 endif()
 
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-#disable installation of gtest
-set(INSTALL_GTEST OFF)
-set(INSTALL_GMOCK OFF)
-FetchContent_MakeAvailable(googletest)
+include(third_party/gtest.cmake)
 
 
 
 if(USE_CUDA)
-    FetchContent_Declare(
-        stdgpu
-        GIT_REPOSITORY https://github.com/stotko/stdgpu.git
-        GIT_TAG        master
-    )
-
-    # Exclude unneeded parts from the build
-    set(STDGPU_BUILD_EXAMPLES OFF CACHE INTERNAL "")
-    set(STDGPU_BUILD_BENCHMARKS OFF CACHE INTERNAL "")
-    set(STDGPU_BUILD_TESTS OFF CACHE INTERNAL "")
-
-    FetchContent_MakeAvailable(stdgpu)
-
-    # stdgpu (when built with CMake 3.23+ FILE_SET) does not set BUILD_INTERFACE include
-    # dirs, so we must add them so CUDA files that #include <stdgpu/...> can find headers.
-    target_include_directories(stdgpu PUBLIC
-      $<BUILD_INTERFACE:${stdgpu_SOURCE_DIR}/src>
-      $<BUILD_INTERFACE:${stdgpu_BINARY_DIR}/include>
-    )
-
-    # Enable relaxed constexpr for all CUDA compilations
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
+    include(third_party/stdgpu.cmake)
 endif()
 
 include_directories(${OpenCV_INCLUDE_DIRS})
