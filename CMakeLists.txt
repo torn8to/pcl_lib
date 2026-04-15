@@ -22,20 +22,21 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # they can be linked into shared objects.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-#include(cmake/CPM.cmake)
-
 include(CheckLanguage)
 include(FetchContent)
 
+find_package(rclcpp QUIET)
+if(rclcpp_FOUND)
+    set(ROS2_FOUND TRUE)
+    message(STATUS "ROS 2 (rclcpp) found")
+endif()
 
 find_package(Eigen3 REQUIRED)
-
 include(third_party/sophus.cmake)
+include(third_party/yaml.cmake)
 find_package(TBB REQUIRED)
 find_package(OpenCV REQUIRED)
-#find_package(Iridescence REQUIRED)
-
-#add_subdirectory(loop_closure_detector)
+find_package(Iridescence REQUIRED)
 
 if(USE_CUDA)
     # Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
@@ -43,16 +44,10 @@ if(USE_CUDA)
 
     find_package(CUDAToolkit REQUIRED)
     find_package(CUDA REQUIRED)
-endif()
-
-include(third_party/gtest.cmake)
-
-
-
-if(USE_CUDA)
     include(third_party/stdgpu.cmake)
 endif()
 
+include(third_party/gtest.cmake)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 if(USE_CUDA)
@@ -69,8 +64,6 @@ if(USE_CUDA)
       Eigen3::Eigen
       Sophus::Sophus
       stdgpu::stdgpu
-      CUDA::cusolver
-      CUDA::curand
       CUDA::cublas
     )
     target_compile_features(${PROJECT_NAME}_lib_gpu PUBLIC cuda_std_17 cxx_std_17)
@@ -82,6 +75,18 @@ if(USE_CUDA)
       >
     )
 endif()
+
+add_library(ekf_visualizer SHARED
+  visualization/ekf_visualizer.hpp
+)
+target_include_directories(ekf_visualizer PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(ekf_visualizer PUBLIC
+  Eigen3::Eigen
+  Iridescence::Iridescence
+  yaml-cpp::yaml-cpp
+)
 
 add_library(${PROJECT_NAME}_lib SHARED
   src/Pipeline.cpp
@@ -140,7 +145,8 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   Sophus::Sophus
   TBB::tbb
   ${OpenCV_LIBS}
-  #Iridescence::Iridescence
+  Iridescence::Iridescence
+  yaml-cpp::yaml-cpp
 )
 
 if(USE_CUDA)
