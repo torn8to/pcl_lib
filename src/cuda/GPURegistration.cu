@@ -1,4 +1,4 @@
-#include "GPURegistration.cuh"
+#include <pcl_lib/cuda/GPURegistration.cuh>
 
 static constexpr Jacobian3x6 ZeroJacobian = Jacobian3x6().zero();
 

@@ -1,4 +1,4 @@
-#include "cuda/MotionCompensation.cuh"
+#include <pcl_lib/cuda/MotionCompensation.cuh>
 
 namespace{
 /**

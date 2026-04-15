@@ -1,0 +1,30 @@
+---
+topics: ["horizontal_lidar", "vertical_lidar"]
+imu_topic: "/imu"
+
+transforms:
+  - name: "horizontal_lidar" # topic name
+    posityon: 
+      x: -0.042
+      y: 0.213
+      z: 0.236
+    quaternion:
+      x: 0.005
+      y: 0.00
+      z: -0.0001
+      w: 1.000
+  - name: "vertical_lidar" 
+    posityon: 
+      x: -0.042
+      y: -0.387
+      z: 0.687
+    quaternion:
+      x: -0.002
+      y: -0.682
+      z: 0.731
+      w: 0.017
+
+
+
+
+

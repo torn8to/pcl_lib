@@ -1,4 +1,4 @@
-#include "VoxelMap.hpp"
+#include <pcl_lib/VoxelMap.hpp>
 #include <algorithm>
 #include <tuple>
 
@@ -17,7 +17,7 @@ static const std::array<Voxel, 27> voxel_shifts{
 namespace cloud {
 
 void VoxelMap::addPoints(const std::vector<Eigen::Vector3d> &points) {
-  double resolution_spacing =
+  const double resolution_spacing =
       std::sqrt((voxel_resolution_ * voxel_resolution_) / max_points_per_voxel_);
   for (const auto &point : points) {
     const Voxel voxel = PointToVoxel(point, voxel_resolution_);
@@ -70,7 +70,7 @@ std::vector<Eigen::Vector3d> VoxelMap::cloud() const {
     const std::vector<Eigen::Vector3d> &voxel_data = map_element.second;
     if (!voxel_data.empty()) {
       cloud.insert(cloud.end(), voxel_data.begin(), voxel_data.end());
-      //cloud.push_back(voxel_data[0]);
+      // cloud.push_back(voxel_data[0]);
     }
   });
   cloud.shrink_to_fit();
@@ -92,7 +92,7 @@ VoxelMap::firstNearestNeighborQuery(const Eigen::Vector3d &point) const {
               return (lhs - point).norm() < (rhs - point).norm();
             });
         double distance = (neighbor - point).norm();
-        if (distance < min_distance){
+        if (distance < min_distance) {
           closest_neighbor = neighbor;
           min_distance = distance;
         }
@@ -103,18 +103,18 @@ VoxelMap::firstNearestNeighborQuery(const Eigen::Vector3d &point) const {
 }
 
 /**
-*@brief  get points in the voxel assumes it is inserted the voxel 
-* exists in the map mostly used for testing between cpu and gpu map consistencyt
-*
-*@param voxel the voxel you want points for
-*@return a vector of the points contained in the voxel
-*/
-std::vector<Eigen::Vector3d> VoxelMap::getVoxelPoints(const Eigen::Vector3i voxel){
+ *@brief  get points in the voxel assumes it is inserted the voxel
+ * exists in the map mostly used for testing between cpu and gpu map consistencyt
+ *
+ *@param voxel the voxel you want points for
+ *@return a vector of the points contained in the voxel
+ */
+std::vector<Eigen::Vector3d> VoxelMap::getVoxelPoints(const Eigen::Vector3i voxel) {
   std::vector<Eigen::Vector3d> voxel_points;
   voxel_points.reserve(max_points_per_voxel_);
 
   auto voxel_map_iterator = map_.find(voxel);
-  if (voxel_map_iterator == map_.end()){
+  if (voxel_map_iterator == map_.end()) {
     return voxel_points;
   }
 
@@ -124,13 +124,31 @@ std::vector<Eigen::Vector3d> VoxelMap::getVoxelPoints(const Eigen::Vector3i voxe
   return voxel_points;
 }
 
-std::vector<Eigen::Vector3i> VoxelMap::getVoxels(){
+std::vector<Eigen::Vector3i> VoxelMap::getVoxels() {
   std::vector<Eigen::Vector3i> voxel_vectors;
   voxel_vectors.reserve(map_.size());
-  std::for_each(map_.begin(), map_.end(), [&](const auto &voxel_and_points){
+  std::for_each(map_.begin(), map_.end(), [&](const auto &voxel_and_points) {
     voxel_vectors.push_back(voxel_and_points.first);
   });
   return voxel_vectors;
 }
 
-}// namespace cloud
+void VoxelMap::removePointsFarFromOrigin(const Eigen::Vector3d &origin) {
+  double max_range_squared = max_range_ * max_range_;
+  for (auto it = map_.begin(); it != map_.end();) {
+    bool any_point_in_range = false;
+    for (const auto &pt : it->second) {
+      if ((pt - origin).squaredNorm() < max_range_squared) {
+        any_point_in_range = true;
+        break;
+      }
+    }
+    if (!any_point_in_range) {
+      it = map_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+} // namespace cloud

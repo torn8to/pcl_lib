@@ -1,6 +1,4 @@
-#include "Pipeline.hpp"
-#include "VoxelUtils.hpp"
-#include <sstream>
+#include <pcl_lib/Pipeline.hpp>
 
 namespace cloud {
 
@@ -11,45 +9,35 @@ Pipeline::Pipeline(const PipelineConfig &config)
       voxel_resolution_beta_(config.voxel_resolution_beta),
       imu_integration_enabled_(config.imu_integration_enabled),
       max_points_per_voxel_(config.max_points_per_voxel),
-      odom_voxel_downsample_(config.odom_downsample),
       voxel_map_((config.max_distance / config.voxel_factor) * config.voxel_resolution_alpha,
                  config.max_distance, config.max_points_per_voxel),
       threshold(config.initial_threshold, config.min_motion_threshold, config.max_distance),
-      lfu_prune_counter_(0), lfu_prune_interval_(config.lfu_prune_interval) {}
+      adaptive_sampling_params_(config.params) {}
 
 Pipeline::~Pipeline() {
   // Cleanup if needed
 }
 
 std::tuple<Sophus::SE3d, std::vector<Eigen::Vector3d>>
-Pipeline::odometryUpdate(std::vector<Eigen::Vector3d> &cloud, const Sophus::SE3d &external_guess,
-                         bool use_external_guess) {
+Pipeline::odometryUpdate(std::vector<Eigen::Vector3d> &cloud,
+                         const std::optional<Sophus::SE3d> &external_input) {
   std::vector<Eigen::Vector3d> cloud_voxel_odom;
-  if (odom_voxel_downsample_) {
-    cloud_voxel_odom =
-        voxelDownsample(cloud, max_distance_ / voxel_factor_ * voxel_resolution_beta_);
-  } else {
-    cloud_voxel_odom = cloud;
-  }
+  cloud_voxel_odom =
+      adaptiveDegeneracyAwareSampling(cloud, voxel_resolution_beta_, adaptive_sampling_params_);
+  std::vector<Eigen::Vector3d> cloud_voxel_mapping = voxelDownsample(
+      cloud, (voxel_resolution_alpha_ *
+              (adaptive_sampling_params_.last_voxel_size /
+               voxel_resolution_beta_))); // scaling map update by adaptive_voxel_size
   Sophus::SE3d initial_guess;
-  std::vector<Eigen::Vector3d> cloud_voxel_mapping =
-      voxelDownsample(cloud, max_distance_ / voxel_factor_ * voxel_resolution_alpha_);
-
-  if (use_external_guess) {
-    initial_guess = external_guess;
+  if (external_input.has_value() &&
+      !voxel_map_.empty()) { // avoid prefilling map from non zero position
+    initial_guess = external_input.value();
   } else {
-    //assume kiss_icp motion model
-    initial_guess = position() * pose_diff_;
+    initial_guess = current_position_ * pose_diff_;
   }
-
   const double sigma = threshold.computeThreshold(); // adpative thresholding for kiss icp
-  Sophus::SE3d new_position = registration_.alignPointsToMap(
-    cloud_voxel_odom,
-    voxel_map_,
-    initial_guess,
-    3.0 * sigma,
-    sigma);
-
+  Sophus::SE3d new_position = registration_.alignPointsToMap(cloud_voxel_odom, voxel_map_,
+                                                             initial_guess, 3.0 * sigma, sigma);
 
   const auto model_error = new_position.inverse() * initial_guess;
   threshold.updateModelDeviation(model_error);

@@ -14,10 +14,10 @@
 #include <Eigen/Core>
 #include <sophus/se3.hpp>
 
-#include "Convert.hpp"
-#include "MotionCompensation.hpp"
-#include "Pipeline.hpp"
-#include "tf2_sophus.hpp"
+#include <pcl_lib/Convert.hpp>
+#include <pcl_lib/MotionCompensation.hpp>
+#include <pcl_lib/Pipeline.hpp>
+#include <pcl_lib/tf2_sophus.hpp>
 
 namespace lid_odom {
 

@@ -1,0 +1,19 @@
+---
+lidar_topics: ["horizontal_lidar"]
+imu_topic: "/data/imu"
+
+transforms:
+  - name: "horizontal_lidar" # topic name
+    position: 
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    quaternion:
+      x: 1.0
+      y: 0.0
+      z: 0.0
+      w: 0.0
+
+
+
+

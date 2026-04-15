@@ -1,5 +1,5 @@
-#include "cuda/MotionCompensation.cuh"
-#include "MotionCompensation.hpp"
+#include <pcl_lib/cuda/MotionCompensation.cuh>
+#include <pcl_lib/MotionCompensation.hpp>
 #include "TestUtils.hpp"
 
 #include <gtest/gtest.h>
