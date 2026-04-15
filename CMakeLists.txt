@@ -25,7 +25,14 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(CheckLanguage)
 include(FetchContent)
 
-find_package(rclcpp QUIET)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(rosidl_runtime_cpp REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
+find_package(rosbag2_storage REQUIRED)
 if(rclcpp_FOUND)
     set(ROS2_FOUND TRUE)
     message(STATUS "ROS 2 (rclcpp) found")
@@ -76,30 +83,31 @@ if(USE_CUDA)
     )
 endif()
 
-add_library(ekf_visualizer SHARED
-  visualization/ekf_visualizer.hpp
-)
-target_include_directories(ekf_visualizer PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-target_link_libraries(ekf_visualizer PUBLIC
-  Eigen3::Eigen
-  Iridescence::Iridescence
-  yaml-cpp::yaml-cpp
-)
 
 add_library(${PROJECT_NAME}_lib SHARED
   src/Pipeline.cpp
   src/Registration.cpp
   src/VoxelMap.cpp
+  src/ekf/Esekf.cpp
+  src/ekf/IterEsekf.cpp 
 )
 
 # scripts section
-add_executable(cpu_pipeline_timings benchmarks/cpu_pipeline_timings.cpp)
-target_include_directories(cpu_pipeline_timings PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}
+add_executable(OfflineBagProcessor scripts/SingleLidarBagReader.cpp)
+target_link_libraries(OfflineBagProcessor PRIVATE
+  ${PROJECT_NAME}_lib
+  rclcpp::rclcpp
+  ${sensor_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  rosbag2_cpp::rosbag2_cpp
+  rosbag2_storage::rosbag2_storage
 )
-target_link_libraries(cpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
+
+#add_executable(cpu_pipeline_timings benchmarks/cpu_pipeline_timings.cpp)
+#target_include_directories(cpu_pipeline_timings PRIVATE
+#${CMAKE_CURRENT_SOURCE_DIR}
+#)
+#target_link_libraries(cpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
 
 #add_executable(gpu_pipeline_timings benchmarks/gpu_pipeline_timings.cpp)
 #target_link_libraries(gpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
@@ -110,8 +118,8 @@ target_link_libraries(cpu_pipeline_timings PRIVATE ${PROJECT_NAME}_lib)
 #  ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks
 #)
 #target_link_libraries(compensation_benchmark PRIVATE ${PROJECT_NAME}_lib)
-add_executable(odom_bin_generator scripts/odom_read_into_cloud_save.cpp)
-target_link_libraries(odom_bin_generator PRIVATE ${PROJECT_NAME}_lib)
+#add_executable(odom_bin_generator scripts/odom_read_into_cloud_save.cpp)
+#target_link_libraries(odom_bin_generator PRIVATE ${PROJECT_NAME}_lib)
 
 #scripts section end
 
@@ -147,6 +155,16 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   ${OpenCV_LIBS}
   Iridescence::Iridescence
   yaml-cpp::yaml-cpp
+  rclcpp::rclcpp
+  sensor_msgs::sensor_msgs__rosidl_generator_cpp
+  sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
+  nav_msgs::nav_msgs__rosidl_generator_cpp
+  nav_msgs::nav_msgs__rosidl_typesupport_cpp
+  geometry_msgs::geometry_msgs__rosidl_generator_cpp
+  geometry_msgs::geometry_msgs__rosidl_typesupport_cpp
+  std_msgs::std_msgs__rosidl_generator_cpp
+  std_msgs::std_msgs__rosidl_typesupport_cpp
+  rosidl_runtime_cpp::rosidl_runtime_cpp
 )
 
 if(USE_CUDA)
@@ -213,3 +231,6 @@ if(USE_CUDA)
       CUDA_RESOLVE_DEVICE_SYMBOLS ON
     )
 endif()
+
+
+

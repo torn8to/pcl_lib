@@ -1,4 +1,4 @@
-#include "GPUVoxelHashMap.cuh"
+#include <pcl_lib/cuda/GPUVoxelHashMap.cuh>
 #include <cuda_runtime.h>
 
 namespace {

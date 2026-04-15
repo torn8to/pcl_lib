@@ -1,9 +1,9 @@
 #include <tuple>
 #include <vector>
 
-#include "PointToVoxel.hpp"
-#include "Registration.hpp"
-#include "VoxelMap.hpp"
+#include <pcl_lib/PointToVoxel.hpp>
+#include <pcl_lib/Registration.hpp>
+#include <pcl_lib/VoxelMap.hpp>
 
 #include <tbb/blocked_range.h>
 #include <tbb/concurrent_vector.h>

@@ -11,7 +11,8 @@ struct AdaptiveThreshold {
   explicit AdaptiveThreshold(double initial_threshold, double min_motion_threshold,
                              double max_range)
       : min_motion_threshold_(min_motion_threshold), max_range_(max_range),
-        model_sse_(initial_threshold * initial_threshold), num_samples_(1) {}
+        model_sse_(initial_threshold * initial_threshold), 
+        num_samples_(0) {}
 
   /// Returns the KISS-ICP adaptive threshold used in registration
   inline void updateModelDeviation(const Sophus::SE3d &current_deviation) {
@@ -23,7 +24,7 @@ struct AdaptiveThreshold {
     }();
     if (model_error > min_motion_threshold_) {
       model_sse_ += model_error * model_error;
-      num_samples_++;
+      ++num_samples_;
     }
   }
 

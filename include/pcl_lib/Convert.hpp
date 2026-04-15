@@ -109,7 +109,6 @@ extractOdometryData(nav_msgs::msg::Odometry::SharedPtr odom_msg) {
   Eigen::Quaterniond rotation(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
                               odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
 
-  // Create Sophus::SE3d from translation and rotation
   Sophus::SE3d pose(Sophus::SO3d(rotation), translation);
 
   Eigen::Vector3d linear_velocity(odom_msg->twist.twist.linear.x, odom_msg->twist.twist.linear.y,
@@ -118,7 +117,6 @@ extractOdometryData(nav_msgs::msg::Odometry::SharedPtr odom_msg) {
   Eigen::Vector3d angular_velocity(odom_msg->twist.twist.angular.x, odom_msg->twist.twist.angular.y,
                                    odom_msg->twist.twist.angular.z);
 
-  // Extract timestamp
   double timestamp = static_cast<double>(odom_msg->header.stamp.sec) +
                      static_cast<double>(odom_msg->header.stamp.nanosec) * 1e-9;
 

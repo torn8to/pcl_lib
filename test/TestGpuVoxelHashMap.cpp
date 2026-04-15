@@ -1,6 +1,6 @@
-#include "cuda/GPUVoxelHashMap.cuh"
-#include "VoxelMap.hpp"
-#include "PointToVoxel.hpp"
+#include <pcl_lib/cuda/GPUVoxelHashMap.cuh>
+#include <pcl_lib/VoxelMap.hpp>
+#include <pcl_lib/PointToVoxel.hpp>
 
 #include <gtest/gtest.h>
 

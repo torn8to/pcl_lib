@@ -29,34 +29,39 @@ std::vector<Eigen::Vector3d> voxelDownsample(std::vector<Eigen::Vector3d> &cloud
   return pruned_cloud;
 }
 
-struct AdaptiveSamplingParams{
-  int min_sampled_points = 1500;
+struct AdaptiveSamplingParams {
+  int min_sampled_points = 2000;
   int max_sampled_points = 7000;
   bool point_sampling_cap = true;
-  double float_last_voxel_size = 0.5;
-  int max_iterations = 5
-}
+  double last_voxel_size = 0.5;
+  int max_iterations = 3;
+};
 
-
-std::vector<Eigen::Vector3d> adativeDegeneracyAvoidantSampling(
-    std::vector<Eigen::Vector3d>& cloud,
-    double default_voxel_size,
-    AdaptiveSamplingParams& params){
+/**
+ * @brief a sampling strategy that uses number of sampled for degenerative environments such as
+ * sampling in environments with different size constraints, with a point sampling cap to reduce the
+ * ovehead icp can have when sampling
+ * @param the cloud to sample from
+ * @param default_voxel_size the voxel size we are assuming we are priming for the voxels
+ * @param params the adaptive sampling params that show the params
+ * @returns downsmpled cloud
+ */
+std::vector<Eigen::Vector3d> adaptiveDegeneracyAwareSampling(std::vector<Eigen::Vector3d> &cloud,
+                                                             const double default_voxel_size,
+                                                             AdaptiveSamplingParams &params) {
   double voxel_size = default_voxel_size;
   std::vector<Eigen::Vector3d> downsampled_cloud;
-  for(int i = 0; i < max_ iteraitons; ++i){
-    downsampled_cloud = voxelDownsample(cloud, voxel_size)
-    if(downsampled_cloud.size() < min_sampled_points) {
+  for (int i = 0; i < params.max_iterations; ++i) {
+    downsampled_cloud = voxelDownsample(cloud, voxel_size);
+    if (downsampled_cloud.size() < params.min_sampled_points) {
       voxel_size *= 1.33;
-    }
-    else if(downsampled_cloud.size() > max_sampled_points){
+    } else if (downsampled_cloud.size() > params.max_sampled_points) {
       voxel_size *= 0.75;
-    }
-    else break;
+    } else
+      break;
   }
+  params.last_voxel_size = voxel_size;
   return downsampled_cloud;
 }
-
-
 
 } // namespace cloud

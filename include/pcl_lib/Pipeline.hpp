@@ -1,8 +1,8 @@
 #pragma once
-
 #include "Registration.hpp"
 #include "Threshold.hpp"
 #include "VoxelMap.hpp"
+#include "VoxelUtils.hpp"
 #include <Eigen/Core>
 #include <algorithm>
 #include <sophus/se3.hpp>
@@ -14,16 +14,16 @@ struct PipelineConfig {
   double max_distance = 100.0;
   double voxel_factor = 100;
   double voxel_resolution_alpha = 1.5;
-  double voxel_resolution_beta = 0.5; 
+  double voxel_resolution_beta = 0.5;
   bool imu_integration_enabled = false;
   int max_points_per_voxel = 27;
   int num_threads = 16;
   int num_iterations = 500;
   double convergence = 1e-4;
-  bool odom_downsample = true;
   double initial_threshold = 0.5;
   double min_motion_threshold = 0.1;
   int lfu_prune_interval = 20;
+  AdaptiveSamplingParams params;
 };
 
 class Pipeline {
@@ -53,8 +53,7 @@ public:
    */
   std::tuple<Sophus::SE3d, std::vector<Eigen::Vector3d>>
   odometryUpdate(std::vector<Eigen::Vector3d> &cloud,
-                 const Sophus::SE3d &external_guess = Sophus::SE3d(),
-                 bool use_external_guess = false);
+                 const std::optional<Sophus::SE3d> &external_guess = std::nullopt);
 
   /**
    * @brief Adds points to the map
@@ -124,10 +123,8 @@ private:
   double voxel_resolution_beta_;
   bool imu_integration_enabled_;
   int max_points_per_voxel_;
-  bool odom_voxel_downsample_;
   VoxelMap voxel_map_;
-  int lfu_prune_counter_;  // Counter to track when to prune via LFU
-  int lfu_prune_interval_; // Interval for LFU pruning
+  AdaptiveSamplingParams adaptive_sampling_params_;
 };
 
 } // namespace cloud
