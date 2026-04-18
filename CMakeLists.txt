@@ -39,11 +39,13 @@ if(rclcpp_FOUND)
 endif()
 
 find_package(Eigen3 REQUIRED)
-include(third_party/sophus.cmake)
-include(third_party/yaml.cmake)
 find_package(TBB REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Iridescence REQUIRED)
+
+include(third_party/sophus.cmake)
+include(third_party/yaml.cmake)
+include(third_party/bonxai.cmake)
 
 if(USE_CUDA)
     # Example: for NVIDIA Ampere GPUs (like RTX 30xx, A100)
@@ -90,6 +92,7 @@ add_library(${PROJECT_NAME}_lib SHARED
   src/VoxelMap.cpp
   src/ekf/Esekf.cpp
   src/ekf/IterEsekf.cpp 
+  src/probabilistic_map.cpp
 )
 
 # scripts section
@@ -101,6 +104,7 @@ target_link_libraries(OfflineBagProcessor PRIVATE
   ${nav_msgs_TARGETS}
   rosbag2_cpp::rosbag2_cpp
   rosbag2_storage::rosbag2_storage
+  bonxai
 )
 
 #add_executable(cpu_pipeline_timings benchmarks/cpu_pipeline_timings.cpp)
